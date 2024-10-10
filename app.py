@@ -17,98 +17,83 @@ st.markdown(
 
     /* Titel-Stil */
     .title {
-        color: #f9c220; /* Gelbfarbe */
-        font-size: 32px;
+        color: #f9c61e; /* Gelb passend zur Webseite */
+        font-size: 34px;
+        font-weight: bold;
         text-align: center;
         margin-top: 20px;
-        margin-bottom: 10px;
+        margin-bottom: 20px;
     }
 
     /* Sub-Header-Stil */
     .sub-header {
-        color: #000000; /* Schwarze Farbe */
-        font-size: 24px;
+        color: #0095be; /* Blauton passend zur Webseite */
+        font-size: 26px;
+        font-weight: bold;
         text-align: center;
         margin-bottom: 20px;
     }
 
-    /* Wichtige Textabschnitte in Schwarz */
+    /* Wichtige Textabschnitte */
     .important-text {
-        color: #000000; /* Schwarze Farbe */
+        color: #000000;
         font-size: 20px;
         text-align: center;
         margin-bottom: 20px;
     }
 
-    /* Button-Stil mit dünner gelber Umrandung und schwarzer Textfarbe */
+    /* Button-Stil - Minimalistisch und Outline */
     .stButton>button {
         border-radius: 12px;
-        font-size: 16px;
-        padding: 8px 16px;
+        font-size: 18px;
+        padding: 15px;
         width: 100%;
-        min-height: 40px; /* Setze eine minimale Höhe */
-        border: 1px solid #f9c220; /* Dünne gelbe Umrandung */
+        min-height: 60px; /* Größere Höhe für einfache Bedienung */
+        border: 2px solid #f9c61e; /* Gelbe Umrandung */
         background-color: #FFFFFF; /* Weißer Hintergrund */
-        color: #000000; /* Textfarbe der Buttons in Schwarz */
-        white-space: normal; /* Erlaube Textumbruch */
-        word-wrap: break-word; /* Erlaube Wortumbruch */
-        text-align: center; /* Zentriere den Text */
+        color: #0095be; /* Blaue Schrift */
+        text-align: center;
+        white-space: normal;
+        word-wrap: break-word;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Leichter Schatten für Button */
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; /* Weicher Übergang bei Hover */
     }
 
     /* Hover-Effekt für Buttons */
     .stButton>button:hover {
-        background-color: #f0f0f0; /* Leicht grauer Hintergrund beim Hover */
+        background-color: #f9c61e; /* Gelber Hintergrund beim Hover */
+        color: #ffffff; /* Weiße Schrift beim Hover */
+        border-color: #f9c61e; /* Gelb bleibt */
     }
 
     /* TextInput-Stil */
     .stTextInput>div>div>input {
         border-radius: 12px;
-        font-size: 16px;
-        padding: 8px;
-        border: 1px solid #000000; /* Schwarze Umrandung der Eingabefelder */
+        font-size: 18px;
+        padding: 12px;
+        border: 2px solid #0095be; /* Blaue Umrandung */
+        background-color: #f9f9f9; /* Leichtes Grau für Eingabefelder */
+        color: #000000;
     }
 
-    /* Banner-Stil */
-    .banner {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    /* Einstellungen-Button-Stil */
-    .settings-button {
-        background-color: #FFFFFF; /* Weißer Hintergrund */
-        border: 1px solid #f9c220; /* Gelbe Umrandung */
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        font-size: 20px;
-        cursor: pointer;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #000000; /* Schwarzer Text */
-        margin-right: 20px;
-    }
-
-    /* Optionen-Panel-Stil */
+    /* Optionen-Panel und Admin-Panel-Stil */
     .options-panel {
-        background-color: #FFFFFF; /* Weißer Hintergrund */
+        background-color: #FFFFFF;
         padding: 20px;
-        border: 1px solid #000000; /* Schwarze Umrandung */
+        border: 2px solid #0095be;
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        width: 300px;
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
     }
 
-    /* Optionen-Titel */
     .options-title {
-        font-size: 20px;
+        font-size: 24px;
         margin-bottom: 10px;
         text-align: center;
-        color: #000000; /* Schwarze Farbe */
+        color: #f9c61e;
+        font-weight: bold;
     }
 
     /* Anwesenheits-Tabelle */
@@ -118,13 +103,24 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* Header Layout */
+    /* Header-Layout */
     .header-container {
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
-    </style>
+
+    /* Banner-Stil */
+    .banner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+</style>
+
+
+
     """,
     unsafe_allow_html=True
 )
@@ -502,28 +498,39 @@ def select_employee():
 
 # Funktionen für den Admin-Bereich
 def admin_panel():
-    st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
-    st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+    # Admin panel is displayed only if there's a valid PIN and meaningful content to show
     entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_admin")
-    if entered_pin:
-        if entered_pin == st.session_state.pin:
-            st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
-            st.markdown("<hr>", unsafe_allow_html=True)
-            st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
-            # Anzeige der Anwesenheitsdaten mit Löschoption
-            if st.session_state.attendance_data:
-                st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
-                attendance_df = pd.DataFrame(st.session_state.attendance_data)
-                st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
-                st.markdown("</div>", unsafe_allow_html=True)
-                for record in st.session_state.attendance_data:
-                    st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
-            else:
-                st.warning("Keine Anwesenheitsdaten vorhanden.")
+
+    # Only display the admin panel content when the PIN matches
+    if entered_pin and entered_pin == st.session_state.pin:
+        st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+
+        # Allow to end the GetTogether
+        st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
+
+        # Display attendance data if available
+        if st.session_state.attendance_data:
+            st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
+            attendance_df = pd.DataFrame(st.session_state.attendance_data)
+            st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Provide delete buttons for attendance records
+            for record in st.session_state.attendance_data:
+                st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
         else:
-            st.error("Falscher PIN.")
-    st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.warning("Keine Anwesenheitsdaten vorhanden.")
+        
+        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
+    
+    elif entered_pin and entered_pin != st.session_state.pin:
+        st.error("Falscher PIN.")
+    
+    else:
+        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
+
 
 # Navigation basierend auf dem aktuellen Zustand
 def navigate():
