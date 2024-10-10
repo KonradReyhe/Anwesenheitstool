@@ -2,44 +2,84 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+import uuid
+import platform
 
 # Webseite Farben und Design anpassen
 st.markdown(
     """
     <style>
+    /* Allgemeine Schriftarten und Farben */
     body {
         font-family: Arial, sans-serif;
+        background-color: #FFFFFF; /* Weißer Hintergrund */
     }
+
+    /* Titel-Stil */
+    .title {
+        color: #f9c220; /* Gelbfarbe */
+        font-size: 32px;
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+
+    /* Sub-Header-Stil */
     .sub-header {
-        color: #FFCC00;
+        color: #000000; /* Schwarze Farbe */
         font-size: 24px;
         text-align: center;
         margin-bottom: 20px;
     }
+
+    /* Wichtige Textabschnitte in Schwarz */
+    .important-text {
+        color: #000000; /* Schwarze Farbe */
+        font-size: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    /* Button-Stil mit dünner gelber Umrandung und schwarzer Textfarbe */
     .stButton>button {
         border-radius: 12px;
         font-size: 16px;
         padding: 8px 16px;
         width: 100%;
         height: 40px;
+        border: 1px solid #f9c220; /* Dünne gelbe Umrandung */
+        background-color: #FFFFFF; /* Weißer Hintergrund */
+        color: #000000; /* Textfarbe der Buttons in Schwarz */
     }
+
+    /* Hover-Effekt für Buttons */
+    .stButton>button:hover {
+        background-color: #f0f0f0; /* Leicht grauer Hintergrund beim Hover */
+    }
+
+    /* TextInput-Stil */
     .stTextInput>div>div>input {
         border-radius: 12px;
         font-size: 16px;
         padding: 8px;
+        border: 1px solid #000000; /* Schwarze Umrandung der Eingabefelder */
     }
+
+    /* Banner-Stil */
     .banner {
         display: flex;
         justify-content: center;
         align-items: center;
         margin-bottom: 20px;
     }
+
+    /* Gear-Button-Stil */
     .gear-button {
         position: fixed;
         bottom: 20px;
         left: 20px; /* Untere linke Ecke */
-        background-color: #f0f0f0;
-        border: none;
+        background-color: #FFFFFF; /* Weißer Hintergrund */
+        border: 1px solid #f9c220; /* Gelbe Umrandung */
         border-radius: 50%;
         width: 50px;
         height: 50px;
@@ -50,17 +90,36 @@ st.markdown(
         display: flex;
         align-items: center;
         justify-content: center;
+        color: #000000; /* Schwarzer Text */
     }
+
+    /* Options-Panel-Stil */
     .options-panel {
         position: fixed;
         bottom: 80px;
         left: 20px;
-        background-color: white;
+        background-color: #FFFFFF; /* Weißer Hintergrund */
         padding: 20px;
-        border: 1px solid #ccc;
+        border: 1px solid #000000; /* Schwarze Umrandung */
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         z-index: 1000;
+        width: 300px;
+    }
+
+    /* Optionen-Titel */
+    .options-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+        text-align: center;
+        color: #000000; /* Schwarze Farbe */
+    }
+
+    /* Anwesenheits-Tabelle */
+    .attendance-table {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 10px;
     }
     </style>
     """,
@@ -92,6 +151,22 @@ def initialize_session_state():
 
 initialize_session_state()
 
+# Gemeinsame Header-Funktion für alle Seiten
+def display_header():
+    st.markdown("<div class='title'>GetTogether Anwesenheitstool</div>", unsafe_allow_html=True)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_dir = os.path.join(script_dir, "logos")
+    banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
+    if os.path.exists(banner_path):
+        try:
+            with open(banner_path, "rb") as f:
+                banner_image = f.read()
+            st.image(banner_image, use_column_width=True)
+        except Exception as e:
+            st.error(f"Fehler beim Laden des Banners: {e}")
+    else:
+        st.warning(f"Banner wurde nicht gefunden: {banner_path}")
+
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
     st.session_state.selected_company = company
@@ -108,8 +183,9 @@ def select_team_callback(team):
 # Callback function für die Auswahl eines Mitarbeiters
 def select_employee_callback(employee):
     st.session_state.selected_employee = employee
-    # Anwesenheitsdaten direkt speichern
+    # Anwesenheitsdaten direkt speichern mit einer eindeutigen ID
     attendance_record = {
+        'ID': str(uuid.uuid4()),
         'Name': employee,
         'Firma': st.session_state.selected_company,
         'Team': st.session_state.selected_team,
@@ -143,8 +219,9 @@ def start_get_together():
 def submit_guest():
     guest_name = st.session_state.guest_name
     if guest_name:
-        # Anwesenheitsdaten direkt speichern
+        # Anwesenheitsdaten direkt speichern mit einer eindeutigen ID
         attendance_record = {
+            'ID': str(uuid.uuid4()),
             'Name': guest_name,
             'Firma': 'Gast',
             'Team': 'Gast',
@@ -164,12 +241,33 @@ def submit_guest():
 def end_get_together():
     # Generiere das detaillierte Anwesenheitsdokument lokal
     if st.session_state.attendance_data:
+        # Definiere den lokalen Speicherpfad
+        if platform.system() == "Windows":
+            local_data_dir = r"C:\Users\Konrad.Reyhe\Projektarbeit\data"
+        else:
+            local_data_dir = "data"  # Für andere Betriebssysteme oder Streamlit Sharing
+
+        os.makedirs(local_data_dir, exist_ok=True)  # Erstelle den Ordner, falls er nicht existiert
+
         attendance_df = pd.DataFrame(st.session_state.attendance_data)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_name = f"Anwesenheit_{timestamp}.csv"
+        file_path = os.path.join(local_data_dir, file_name)
         try:
-            attendance_df.to_csv(file_name, index=False, encoding='utf-8')
-            st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich erstellt.")
+            attendance_df.to_csv(file_path, index=False, encoding='utf-8')
+            if platform.system() == "Windows":
+                st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich in '{local_data_dir}' gespeichert.")
+            else:
+                st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich erstellt.")
+
+            # Bereitstellen des Dokuments zum Download (funktioniert auch auf Streamlit Sharing)
+            with open(file_path, "rb") as f:
+                st.download_button(
+                    label="Download Anwesenheitsdokument",
+                    data=f,
+                    file_name=file_name,
+                    mime="text/csv"
+                )
         except Exception as e:
             st.error(f"Fehler beim Erstellen des Anwesenheitsdokuments: {e}")
     else:
@@ -196,21 +294,14 @@ def go_back_to_team_from_employee():
     st.session_state.page = 'select_team'
     st.session_state.selected_team = None
 
+# Callback function zum Löschen eines Anwesenheitseintrags
+def delete_attendance_record(record_id):
+    st.session_state.attendance_data = [record for record in st.session_state.attendance_data if record['ID'] != record_id]
+    st.success("Anwesenheitseintrag erfolgreich gelöscht!")
+
 # Funktionen für die verschiedenen Seiten
 def home():
-    # Banner auf der Startseite
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    logo_dir = os.path.join(script_dir, "logos")
-    banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")  # Korrigierter Dateiname
-    if os.path.exists(banner_path):
-        try:
-            with open(banner_path, "rb") as f:
-                banner_image = f.read()
-            st.image(banner_image, use_column_width=True)
-        except Exception as e:
-            st.error(f"Fehler beim Laden des Banners: {e}")
-    else:
-        st.warning(f"Banner wurde nicht gefunden: {banner_path}")
+    display_header()
 
     st.markdown("<div class='sub-header'>Bitte PIN setzen und GetTogether beginnen:</div>", unsafe_allow_html=True)
 
@@ -223,23 +314,13 @@ def home():
     st.button("GetTogether beginnen", on_click=start_get_together)
 
 def select_company():
-    # Banner anzeigen
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    logo_dir = os.path.join(script_dir, "logos")
-    banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
-    if os.path.exists(banner_path):
-        try:
-            with open(banner_path, "rb") as f:
-                banner_image = f.read()
-            st.image(banner_image, use_column_width=True)
-        except Exception as e:
-            st.error(f"Fehler beim Laden des Banners: {e}")
-    else:
-        st.warning(f"Banner wurde nicht gefunden: {banner_path}")
+    display_header()
 
-    st.markdown("<div class='sub-header'>Bitte Firma auswählen:</div>", unsafe_allow_html=True)
+    st.markdown("<div class='important-text'>Bitte Firma auswählen:</div>", unsafe_allow_html=True)
 
     # Firmen mit Logos (ohne "SUB")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_dir = os.path.join(script_dir, "logos")
     company_logos = {
         "4K Analytics": os.path.join(logo_dir, "4K ANALYTICS.png"),
         "CLINIBOTS": os.path.join(logo_dir, "CLINIBOTS.png"),
@@ -305,16 +386,30 @@ def select_company():
             # Options Panel anzeigen
             with st.container():
                 st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
+                st.markdown("<div class='options-title'>Optionen</div>", unsafe_allow_html=True)
                 entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_panel")
                 if entered_pin:
                     if entered_pin == st.session_state.pin:
                         st.button("GetTogether beenden", key="end_get_together_panel", on_click=end_get_together)
+                        st.markdown("<hr>", unsafe_allow_html=True)
+                        st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
+                        # Anzeige der Anwesenheitsdaten mit Löschoption
+                        if st.session_state.attendance_data:
+                            st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
+                            attendance_df = pd.DataFrame(st.session_state.attendance_data)
+                            st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
+                            st.markdown("</div>", unsafe_allow_html=True)
+                            for record in st.session_state.attendance_data:
+                                st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
+                        else:
+                            st.warning("Keine Anwesenheitsdaten vorhanden.")
                     else:
                         st.error("Falscher PIN.")
                 st.button("Abbrechen", key="cancel_options_panel", on_click=lambda: setattr(st.session_state, 'show_options_panel', False))
                 st.markdown("</div>", unsafe_allow_html=True)
 
 def guest_info():
+    display_header()
     st.markdown("<div class='sub-header'>Bitte Ihren Namen eingeben:</div>", unsafe_allow_html=True)
 
     st.text_input("Name:", key="guest_name")
@@ -323,7 +418,8 @@ def guest_info():
     st.button("Zurück", on_click=go_back_to_company)
 
 def select_team():
-    st.markdown(f"<div class='sub-header'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    display_header()
+    st.markdown(f"<div class='important-text'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
 
     # Excel-Datei mit Mitarbeiterdaten laden
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -357,7 +453,8 @@ def select_team():
     st.button("Zurück", on_click=go_back_to_company)
 
 def select_employee():
-    st.markdown(f"<div class='sub-header'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    display_header()
+    st.markdown(f"<div class='important-text'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
 
     # Excel-Datei mit Mitarbeiterdaten laden
     script_dir = os.path.dirname(os.path.abspath(__file__))
