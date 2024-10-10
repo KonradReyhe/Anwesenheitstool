@@ -426,32 +426,36 @@ def guest_info():
 
     st.button("Zurück", on_click=go_back_to_company)
 
+# Auswahl der Teams
 def select_team():
     display_header()
     st.markdown(f"<div class='important-text'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
 
-    # Excel-Datei mit Mitarbeiterdaten laden
+    # Read the CSV file instead of Excel
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.xlsx')
+    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
 
     if not os.path.exists(file_path):
         st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
         return
 
     try:
-        df = pd.read_excel(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']
-    except Exception as e:
-        st.error(f"Fehler beim Lesen der Excel-Datei: {e}")
-        return
+        # Load CSV with 3 columns: Firma, Team, Mitarbeiter
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']  # Assign the columns
 
-    teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
+        # Filter teams based on the selected company
+        teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
+
+    except Exception as e:
+        st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
+        return
 
     if len(teams) == 0:
         st.warning("Keine Teams für die ausgewählte Firma gefunden.")
         return
 
-    # Teams als Buttons anzeigen mit Teamnamen als Beschriftung
+    # Teams as buttons
     st.markdown("<div class='sub-header'>Team auswählen:</div>", unsafe_allow_html=True)
     cols = st.columns(3)
     for idx, team in enumerate(teams):
@@ -461,26 +465,70 @@ def select_team():
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_company)
 
-def select_employee():
+# Auswahl der Teams
+def select_team():
     display_header()
-    st.markdown(f"<div class='important-text'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
 
-    # Excel-Datei mit Mitarbeiterdaten laden
+    # Read the CSV file
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.xlsx')
+    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
 
     if not os.path.exists(file_path):
         st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
         return
 
     try:
-        df = pd.read_excel(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']
+        # Load CSV with 3 columns: Firma, Team, Mitarbeiter
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']  # Assign the columns
+
+        # Filter teams based on the selected company
+        teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
+
     except Exception as e:
-        st.error(f"Fehler beim Lesen der Excel-Datei: {e}")
+        st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
         return
 
-    employees = df[(df["Firma"] == st.session_state.selected_company) & (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+    if len(teams) == 0:
+        st.warning("Keine Teams für die ausgewählte Firma gefunden.")
+        return
+
+    # Teams as buttons
+    st.markdown("<div class='sub-header'>Team auswählen:</div>", unsafe_allow_html=True)
+    cols = st.columns(3)
+    for idx, team in enumerate(teams):
+        with cols[idx % 3]:
+            st.button(team, key=f"team_{team}", on_click=select_team_callback, args=(team,))
+
+    # Zurück Button
+    st.button("Zurück", on_click=go_back_to_company)
+
+# Auswahl der Mitarbeiter
+def select_employee():
+    display_header()
+    st.markdown(f"<div class='important-text'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+
+    # Read the CSV file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
+
+    if not os.path.exists(file_path):
+        st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
+        return
+
+    try:
+        # Load CSV with 3 columns: Firma, Team, Mitarbeiter
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']  # Assign the columns
+
+        # Filter employees based on selected company and team
+        employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                       (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+
+    except Exception as e:
+        st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
+        return
 
     if len(employees) == 0:
         st.warning("Keine Mitarbeiter für das ausgewählte Team gefunden.")
@@ -495,6 +543,7 @@ def select_employee():
 
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_team_from_employee)
+
 
 # Funktionen für den Admin-Bereich
 def admin_panel():
