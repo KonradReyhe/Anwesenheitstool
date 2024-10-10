@@ -46,10 +46,13 @@ st.markdown(
         font-size: 16px;
         padding: 8px 16px;
         width: 100%;
-        height: 40px;
+        min-height: 40px; /* Setze eine minimale Höhe */
         border: 1px solid #f9c220; /* Dünne gelbe Umrandung */
         background-color: #FFFFFF; /* Weißer Hintergrund */
         color: #000000; /* Textfarbe der Buttons in Schwarz */
+        white-space: normal; /* Erlaube Textumbruch */
+        word-wrap: break-word; /* Erlaube Wortumbruch */
+        text-align: center; /* Zentriere den Text */
     }
 
     /* Hover-Effekt für Buttons */
@@ -73,37 +76,30 @@ st.markdown(
         margin-bottom: 20px;
     }
 
-    /* Gear-Button-Stil */
-    .gear-button {
-        position: fixed;
-        bottom: 20px;
-        left: 20px; /* Untere linke Ecke */
+    /* Einstellungen-Button-Stil */
+    .settings-button {
         background-color: #FFFFFF; /* Weißer Hintergrund */
         border: 1px solid #f9c220; /* Gelbe Umrandung */
         border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        font-size: 24px;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
         cursor: pointer;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #000000; /* Schwarzer Text */
+        margin-right: 20px;
     }
 
-    /* Options-Panel-Stil */
+    /* Optionen-Panel-Stil */
     .options-panel {
-        position: fixed;
-        bottom: 80px;
-        left: 20px;
         background-color: #FFFFFF; /* Weißer Hintergrund */
         padding: 20px;
         border: 1px solid #000000; /* Schwarze Umrandung */
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        z-index: 1000;
         width: 300px;
     }
 
@@ -120,6 +116,13 @@ st.markdown(
         max-height: 300px;
         overflow-y: auto;
         margin-bottom: 10px;
+    }
+
+    /* Header Layout */
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     </style>
     """,
@@ -144,15 +147,21 @@ def initialize_session_state():
         st.session_state.show_options_panel = False
     if 'guest_name' not in st.session_state:
         st.session_state.guest_name = None
+    if 'guest_company' not in st.session_state:
+        st.session_state.guest_company = ''  # Optionales Feld für Firma
     if 'entered_pin' not in st.session_state:
         st.session_state.entered_pin = ''
     if 'attendance_data' not in st.session_state:
         st.session_state.attendance_data = []
+    if 'show_admin_panel' not in st.session_state:
+        st.session_state.show_admin_panel = False
 
 initialize_session_state()
 
 # Gemeinsame Header-Funktion für alle Seiten
 def display_header():
+    st.markdown("<div class='header-container'>", unsafe_allow_html=True)
+    # Linke Seite: Titel und Banner
     st.markdown("<div class='title'>GetTogether Anwesenheitstool</div>", unsafe_allow_html=True)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     logo_dir = os.path.join(script_dir, "logos")
@@ -161,11 +170,19 @@ def display_header():
         try:
             with open(banner_path, "rb") as f:
                 banner_image = f.read()
+            # Anzeigen des Bildes mit einheitlicher Breite
             st.image(banner_image, use_column_width=True)
         except Exception as e:
             st.error(f"Fehler beim Laden des Banners: {e}")
     else:
         st.warning(f"Banner wurde nicht gefunden: {banner_path}")
+    # Linke Seite schließen
+    # Rechte Seite: Einstellungen-Button
+    col1, col2 = st.columns([9, 1])
+    with col2:
+        if st.button("⚙️", key="settings_button"):
+            st.session_state.show_admin_panel = not st.session_state.show_admin_panel
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
@@ -218,12 +235,13 @@ def start_get_together():
 # Callback function zum Einreichen der Gast-Information
 def submit_guest():
     guest_name = st.session_state.guest_name
+    guest_company = st.session_state.guest_company.strip()  # Optionales Feld
     if guest_name:
         # Anwesenheitsdaten direkt speichern mit einer eindeutigen ID
         attendance_record = {
             'ID': str(uuid.uuid4()),
             'Name': guest_name,
-            'Firma': 'Gast',
+            'Firma': guest_company if guest_company else 'Gast',
             'Team': 'Gast',
             'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -234,6 +252,7 @@ def submit_guest():
         st.session_state.page = 'select_company'
         st.session_state.selected_company = None
         st.session_state.guest_name = None
+        st.session_state.guest_company = ''
     else:
         st.error("Bitte geben Sie Ihren Namen ein.")
 
@@ -280,7 +299,7 @@ def end_get_together():
     st.session_state.selected_team = None
     st.session_state.selected_employee = None
     st.session_state.pin = None
-    st.session_state.show_options_panel = False
+    st.session_state.show_admin_panel = False
     st.session_state.attendance_data = []
 
 # Callback function zum Zurückkehren zur Firmenauswahl
@@ -298,6 +317,31 @@ def go_back_to_team_from_employee():
 def delete_attendance_record(record_id):
     st.session_state.attendance_data = [record for record in st.session_state.attendance_data if record['ID'] != record_id]
     st.success("Anwesenheitseintrag erfolgreich gelöscht!")
+
+# Funktionen für den Admin-Bereich
+def admin_panel():
+    st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
+    st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+    entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_admin")
+    if entered_pin:
+        if entered_pin == st.session_state.pin:
+            st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
+            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
+            # Anzeige der Anwesenheitsdaten mit Löschoption
+            if st.session_state.attendance_data:
+                st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
+                attendance_df = pd.DataFrame(st.session_state.attendance_data)
+                st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
+                st.markdown("</div>", unsafe_allow_html=True)
+                for record in st.session_state.attendance_data:
+                    st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
+            else:
+                st.warning("Keine Anwesenheitsdaten vorhanden.")
+        else:
+            st.error("Falscher PIN.")
+    st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Funktionen für die verschiedenen Seiten
 def home():
@@ -376,43 +420,12 @@ def select_company():
                     # Firmen ohne Logos (falls vorhanden)
                     st.button("Auswählen", key=f"select_{company}", on_click=select_company_callback, args=(company,))
 
-    # Optionen Zahnrad Button unten links (nur anzeigen, wenn GetTogether gestartet ist)
-    if st.session_state.get_together_started:
-        # Platzierung des Zahnrads mit eindeutigen Key
-        if st.button("⚙️", key="gear_button_toggle_unique"):
-            st.session_state.show_options_panel = not st.session_state.show_options_panel
-
-        if st.session_state.show_options_panel:
-            # Options Panel anzeigen
-            with st.container():
-                st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
-                st.markdown("<div class='options-title'>Optionen</div>", unsafe_allow_html=True)
-                entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_panel")
-                if entered_pin:
-                    if entered_pin == st.session_state.pin:
-                        st.button("GetTogether beenden", key="end_get_together_panel", on_click=end_get_together)
-                        st.markdown("<hr>", unsafe_allow_html=True)
-                        st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
-                        # Anzeige der Anwesenheitsdaten mit Löschoption
-                        if st.session_state.attendance_data:
-                            st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
-                            attendance_df = pd.DataFrame(st.session_state.attendance_data)
-                            st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
-                            st.markdown("</div>", unsafe_allow_html=True)
-                            for record in st.session_state.attendance_data:
-                                st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
-                        else:
-                            st.warning("Keine Anwesenheitsdaten vorhanden.")
-                    else:
-                        st.error("Falscher PIN.")
-                st.button("Abbrechen", key="cancel_options_panel", on_click=lambda: setattr(st.session_state, 'show_options_panel', False))
-                st.markdown("</div>", unsafe_allow_html=True)
-
 def guest_info():
     display_header()
     st.markdown("<div class='sub-header'>Bitte Ihren Namen eingeben:</div>", unsafe_allow_html=True)
 
     st.text_input("Name:", key="guest_name")
+    st.text_input("Firma (optional):", key="guest_company")  # Optionales Firmenfeld
     st.button("Anwesenheit erfassen", on_click=submit_guest)
 
     st.button("Zurück", on_click=go_back_to_company)
@@ -487,10 +500,30 @@ def select_employee():
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_team_from_employee)
 
-# Einstellungen Zahnrad anzeigen nur wenn GetTogether gestartet ist
-def settings():
-    # Da der Gear-Button bereits in select_company platziert ist, brauchen wir hier nichts
-    pass
+# Funktionen für den Admin-Bereich
+def admin_panel():
+    st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
+    st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+    entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_admin")
+    if entered_pin:
+        if entered_pin == st.session_state.pin:
+            st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
+            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
+            # Anzeige der Anwesenheitsdaten mit Löschoption
+            if st.session_state.attendance_data:
+                st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
+                attendance_df = pd.DataFrame(st.session_state.attendance_data)
+                st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
+                st.markdown("</div>", unsafe_allow_html=True)
+                for record in st.session_state.attendance_data:
+                    st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
+            else:
+                st.warning("Keine Anwesenheitsdaten vorhanden.")
+        else:
+            st.error("Falscher PIN.")
+    st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Navigation basierend auf dem aktuellen Zustand
 def navigate():
@@ -505,8 +538,9 @@ def navigate():
     elif st.session_state.page == 'select_employee':
         select_employee()
 
-# Einstellungen immer anzeigen (hier wird der Gear Button nicht mehr hinzugefügt)
-settings()
+    # Anzeige des Admin-Panels, wenn aktiviert
+    if st.session_state.show_admin_panel:
+        admin_panel()
 
 # Führen Sie die Navigation durch
 navigate()
