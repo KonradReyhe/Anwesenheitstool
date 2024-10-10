@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import uuid
 import platform
+import time
 
 # Webseite Farben und Design anpassen
 st.markdown(
@@ -125,7 +126,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Session-State Initialisierung
+# Initialize session state
 def initialize_session_state():
     if 'page' not in st.session_state:
         st.session_state.page = 'home'
@@ -151,10 +152,18 @@ def initialize_session_state():
         st.session_state.attendance_data = []
     if 'show_admin_panel' not in st.session_state:
         st.session_state.show_admin_panel = False
+    if 'confirmation_needed' not in st.session_state:  # Confirmation state for ending event
+        st.session_state.confirmation_needed = False
+    if 'new_pin' not in st.session_state:  # To track new PIN changes
+        st.session_state.new_pin = None
+    if 'admin_access_granted' not in st.session_state:  # Add this line to initialize the admin_access_granted variable
+        st.session_state.admin_access_granted = False  # Initialize to False
+    if 'last_interaction_time' not in st.session_state:  # Add this for handling inactivity
+        st.session_state.last_interaction_time = time.time()
+
 
 initialize_session_state()
 
-# Gemeinsame Header-Funktion für alle Seiten
 def display_header():
     st.markdown("<div class='header-container'>", unsafe_allow_html=True)
     # Linke Seite: Titel und Banner
@@ -172,13 +181,17 @@ def display_header():
             st.error(f"Fehler beim Laden des Banners: {e}")
     else:
         st.warning(f"Banner wurde nicht gefunden: {banner_path}")
-    # Linke Seite schließen
-    # Rechte Seite: Einstellungen-Button
-    col1, col2 = st.columns([9, 1])
-    with col2:
-        if st.button("⚙️", key="settings_button"):
-            st.session_state.show_admin_panel = not st.session_state.show_admin_panel
+    
+    # Rechte Seite: Nur anzeigen, wenn GetTogether gestartet wurde
+    if st.session_state.get_together_started:
+        col1, col2 = st.columns([9, 1])
+        with col2:
+            if st.button("⚙️", key="settings_button"):
+                st.session_state.show_admin_panel = not st.session_state.show_admin_panel  # Toggle admin panel visibility
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+
 
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
@@ -212,6 +225,28 @@ def select_employee_callback(employee):
     st.session_state.selected_company = None
     st.session_state.selected_team = None
     st.session_state.selected_employee = None
+
+# Function to save attendance outside of ending GetTogether
+def save_attendance():
+    if st.session_state.attendance_data:
+        attendance_df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_{timestamp}.csv"
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        attendance_df.to_csv(file_path, index=False, encoding='utf-8')
+        
+        st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich gespeichert.")
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label="Download Anwesenheitsdokument",
+                data=f,
+                file_name=file_name,
+                mime="text/csv"
+            )
+    else:
+        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
 
 # Callback function zum Starten des GetTogether
 def start_get_together():
@@ -252,51 +287,6 @@ def submit_guest():
     else:
         st.error("Bitte geben Sie Ihren Namen ein.")
 
-# Callback function zum Beenden des GetTogether
-def end_get_together():
-    # Generiere das detaillierte Anwesenheitsdokument lokal
-    if st.session_state.attendance_data:
-        # Definiere den lokalen Speicherpfad
-        if platform.system() == "Windows":
-            local_data_dir = r"C:\Users\Konrad.Reyhe\Projektarbeit\data"
-        else:
-            local_data_dir = "data"  # Für andere Betriebssysteme oder Streamlit Sharing
-
-        os.makedirs(local_data_dir, exist_ok=True)  # Erstelle den Ordner, falls er nicht existiert
-
-        attendance_df = pd.DataFrame(st.session_state.attendance_data)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"Anwesenheit_{timestamp}.csv"
-        file_path = os.path.join(local_data_dir, file_name)
-        try:
-            attendance_df.to_csv(file_path, index=False, encoding='utf-8')
-            if platform.system() == "Windows":
-                st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich in '{local_data_dir}' gespeichert.")
-            else:
-                st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich erstellt.")
-
-            # Bereitstellen des Dokuments zum Download (funktioniert auch auf Streamlit Sharing)
-            with open(file_path, "rb") as f:
-                st.download_button(
-                    label="Download Anwesenheitsdokument",
-                    data=f,
-                    file_name=file_name,
-                    mime="text/csv"
-                )
-        except Exception as e:
-            st.error(f"Fehler beim Erstellen des Anwesenheitsdokuments: {e}")
-    else:
-        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
-
-    # Zurücksetzen der Session State Variablen und zur Startseite navigieren
-    st.session_state.page = 'home'
-    st.session_state.get_together_started = False
-    st.session_state.selected_company = None
-    st.session_state.selected_team = None
-    st.session_state.selected_employee = None
-    st.session_state.pin = None
-    st.session_state.show_admin_panel = False
-    st.session_state.attendance_data = []
 
 # Callback function zum Zurückkehren zur Firmenauswahl
 def go_back_to_company():
@@ -314,30 +304,121 @@ def delete_attendance_record(record_id):
     st.session_state.attendance_data = [record for record in st.session_state.attendance_data if record['ID'] != record_id]
     st.success("Anwesenheitseintrag erfolgreich gelöscht!")
 
-# Funktionen für den Admin-Bereich
+def end_get_together():
+    if st.session_state.attendance_data:
+        attendance_df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_{timestamp}.csv"
+        local_data_dir = "data"
+
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        attendance_df.to_csv(file_path, index=False, encoding='utf-8')
+
+        st.success(f"GetTogether beendet und Anwesenheitsdokument '{file_name}' gespeichert.")
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label="Download Anwesenheitsdokument",
+                data=f,
+                file_name=file_name,
+                mime="text/csv"
+            )
+    
+    reset_session_state()  # Reset session state after the event ends
+
+
+
+# Show admin options after successful PIN entry and hide the company selection and PIN input
 def admin_panel():
-    st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
-    st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
-    entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_admin")
-    if entered_pin:
-        if entered_pin == st.session_state.pin:
-            st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
-            st.markdown("<hr>", unsafe_allow_html=True)
-            st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
-            # Anzeige der Anwesenheitsdaten mit Löschoption
-            if st.session_state.attendance_data:
-                st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
-                attendance_df = pd.DataFrame(st.session_state.attendance_data)
-                st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
-                st.markdown("</div>", unsafe_allow_html=True)
-                for record in st.session_state.attendance_data:
-                    st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
+    # Timeout after inactivity
+    timeout_duration = 300
+    if st.session_state.admin_access_granted and (time.time() - st.session_state.last_interaction_time > timeout_duration):
+        st.warning("Admin-Panel wegen Inaktivität geschlossen.")
+        st.session_state.admin_access_granted = False
+        st.session_state.show_admin_panel = False
+        st.session_state.page = 'select_company'
+
+    if not st.session_state.admin_access_granted:
+        entered_pin = st.text_input("Admin PIN eingeben", type="password", key="entered_pin_admin")
+        if entered_pin and entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True
+            st.session_state.show_company_selection = False  # Hide company logos
+            st.session_state.last_interaction_time = time.time()
+            st.success("Adminzugang gewährt.")
+        elif entered_pin:
+            st.error("Falscher Admin PIN.")
+
+    if st.session_state.admin_access_granted:
+        st.session_state.entered_pin_admin = None  # Hide the PIN input after success
+        st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+
+        # Option to end GetTogether with confirmation
+        if st.session_state.get_together_started:
+            if not st.session_state.confirmation_needed:
+                if st.button("GetTogether beenden"):
+                    st.session_state.confirmation_needed = True
+                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+
+            # Confirm the PIN again before ending the event
+            if st.session_state.confirmation_needed:
+                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password")
+                if confirmation_pin and confirmation_pin == st.session_state.pin:
+                    end_get_together()
+                    st.session_state.confirmation_needed = False
+                    st.session_state.admin_access_granted = False  # Reset admin access after ending the event
+                elif confirmation_pin:
+                    st.error("Falscher PIN. Bitte erneut eingeben.")
+                st.session_state.last_interaction_time = time.time()  # Update interaction time
+
+        # Option to change the admin PIN (requires current PIN confirmation)
+        st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
+        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+        if current_pin == st.session_state.pin:
+            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1")
+            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2")
+
+            if new_pin1 and new_pin2:
+                if new_pin1 == new_pin2:
+                    st.session_state.pin = new_pin1
+                    st.success("PIN wurde erfolgreich geändert!")
+                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                else:
+                    st.error("Die neuen PINs stimmen nicht überein.")
+        elif current_pin and current_pin != st.session_state.pin:
+            st.error("Aktueller PIN ist falsch.")
+
+        # Option to save the attendance data
+        st.markdown("<div class='sub-header'>Anwesenheitsdokument speichern:</div>", unsafe_allow_html=True)
+        if st.button("Anwesenheit speichern"):
+            save_attendance()
+            st.session_state.last_interaction_time = time.time()  # Update interaction time
+
+        # Admin panel cancel button
+        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'admin_access_granted', False))
+
+    # Update last interaction time if any interaction happens
+    if st.session_state.admin_access_granted:
+        st.session_state.last_interaction_time = time.time()
+
+def change_pin():
+    st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
+    current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+
+    if current_pin == st.session_state.pin:
+        new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1")
+        new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2")
+
+        if new_pin1 and new_pin2:
+            if new_pin1 == new_pin2:
+                st.session_state.pin = new_pin1
+                st.success("PIN wurde erfolgreich geändert!")
             else:
-                st.warning("Keine Anwesenheitsdaten vorhanden.")
-        else:
-            st.error("Falscher PIN.")
-    st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
-    st.markdown("</div>", unsafe_allow_html=True)
+                st.error("Die neuen PINs stimmen nicht überein.")
+    elif current_pin and current_pin != st.session_state.pin:
+        st.error("Aktueller PIN ist falsch.")
+
+
+
 
 # Funktionen für die verschiedenen Seiten
 def home():
@@ -545,47 +626,83 @@ def select_employee():
     st.button("Zurück", on_click=go_back_to_team_from_employee)
 
 
-# Funktionen für den Admin-Bereich
 def admin_panel():
-    # Admin panel is displayed only if there's a valid PIN and meaningful content to show
-    entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_admin")
+    # Define timeout in seconds (e.g., 300 seconds = 5 minutes)
+    timeout_duration = 300
 
-    # Only display the admin panel content when the PIN matches
-    if entered_pin and entered_pin == st.session_state.pin:
+    # Check if the admin access has timed out
+    if st.session_state.admin_access_granted and (time.time() - st.session_state.last_interaction_time > timeout_duration):
+        st.warning("Admin-Panel wegen Inaktivität geschlossen.")
+        st.session_state.admin_access_granted = False
+        st.session_state.show_admin_panel = False
+
+    # Show the PIN input only if admin access has not been granted yet
+    if not st.session_state.admin_access_granted:
+        entered_pin = st.text_input("Admin PIN eingeben", type="password", key="entered_pin_admin")
+
+        # Check if the entered PIN matches the current event PIN
+        if entered_pin and entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True  # Grant admin access
+            st.session_state.last_interaction_time = time.time()  # Reset the interaction time
+            st.success("Adminzugang gewährt.")
+
+    # Once admin access is granted, hide the PIN input field and show admin options
+    if st.session_state.admin_access_granted:
         st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
 
-        # Allow to end the GetTogether
-        st.button("GetTogether beenden", key="end_get_together_admin", on_click=end_get_together)
-        st.markdown("<hr>", unsafe_allow_html=True)
-        st.markdown("<div class='sub-header'>Anwesenheit bearbeiten:</div>", unsafe_allow_html=True)
+        # Option to end GetTogether with confirmation
+        if st.session_state.get_together_started:
+            if not st.session_state.confirmation_needed:
+                if st.button("GetTogether beenden"):
+                    st.session_state.confirmation_needed = True
+                    st.session_state.last_interaction_time = time.time()  # Update interaction time
 
-        # Display attendance data if available
-        if st.session_state.attendance_data:
-            st.markdown("<div class='attendance-table'>", unsafe_allow_html=True)
-            attendance_df = pd.DataFrame(st.session_state.attendance_data)
-            st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
-            st.markdown("</div>", unsafe_allow_html=True)
+            # Confirm the PIN again before ending the event
+            if st.session_state.confirmation_needed:
+                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password")
+                if confirmation_pin and confirmation_pin == st.session_state.pin:
+                    end_get_together()
+                    st.session_state.confirmation_needed = False
+                    st.session_state.admin_access_granted = False  # Reset admin access after ending the event
+                elif confirmation_pin:
+                    st.error("Falscher PIN. Bitte erneut eingeben.")
+                st.session_state.last_interaction_time = time.time()  # Update interaction time
 
-            # Provide delete buttons for attendance records
-            for record in st.session_state.attendance_data:
-                st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}", on_click=delete_attendance_record, args=(record['ID'],))
-        else:
-            st.warning("Keine Anwesenheitsdaten vorhanden.")
-        
-        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
-    
-    elif entered_pin and entered_pin != st.session_state.pin:
-        st.error("Falscher PIN.")
-    
-    else:
-        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'show_admin_panel', False))
+        # Option to change the admin PIN (requires current PIN confirmation)
+        st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
+        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+        if current_pin == st.session_state.pin:
+            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1")
+            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2")
+
+            if new_pin1 and new_pin2:
+                if new_pin1 == new_pin2:
+                    st.session_state.pin = new_pin1
+                    st.success("PIN wurde erfolgreich geändert!")
+                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                else:
+                    st.error("Die neuen PINs stimmen nicht überein.")
+        elif current_pin and current_pin != st.session_state.pin:
+            st.error("Aktueller PIN ist falsch.")
+
+        # Option to save the attendance data
+        st.markdown("<div class='sub-header'>Anwesenheitsdokument speichern:</div>", unsafe_allow_html=True)
+        if st.button("Anwesenheit speichern"):
+            save_attendance()
+            st.session_state.last_interaction_time = time.time()  # Update interaction time
+
+        # Admin panel cancel button
+        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'admin_access_granted', False))
+
+    # Update last interaction time if any interaction happens
+    if st.session_state.admin_access_granted:
+        st.session_state.last_interaction_time = time.time()
 
 
-# Navigation basierend auf dem aktuellen Zustand
 def navigate():
     if st.session_state.page == 'home':
         home()
-    elif st.session_state.page == 'select_company':
+    elif st.session_state.page == 'select_company' and not st.session_state.admin_access_granted:
         select_company()
     elif st.session_state.page == 'guest_info':
         guest_info()
@@ -594,9 +711,72 @@ def navigate():
     elif st.session_state.page == 'select_employee':
         select_employee()
 
-    # Anzeige des Admin-Panels, wenn aktiviert
+    # Always display the admin panel when it's toggled (whether admin access is granted or not)
     if st.session_state.show_admin_panel:
-        admin_panel()
+        admin_panel()  # This will ensure that the admin panel PIN input is shown if not already granted
 
-# Führen Sie die Navigation durch
+    # Call timeout after each interaction
+    admin_panel_timeout()
+
+
+
+def admin_panel_timeout():
+    if st.session_state.admin_access_granted:
+        # Close admin panel if no interaction happens within 300 seconds (5 minutes)
+        if time.time() - st.session_state.last_interaction_time > 300:
+            st.warning("Admin-Panel wegen Inaktivität geschlossen.")
+            st.session_state.admin_access_granted = False
+            st.session_state.show_admin_panel = False
+            st.session_state.page = 'select_company'  # Return to company selection
+
+def show_admin_panel():
+    if not st.session_state.admin_access_granted:
+        entered_pin = st.text_input("Admin PIN eingeben", type="password", key="entered_pin_admin")
+        if entered_pin and entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True  # Grant access
+            st.session_state.show_company_selection = False  # Hide company logos
+            st.session_state.entered_pin_admin = None  # Clear the PIN input
+            st.session_state.last_interaction_time = time.time()  # Reset the interaction timer
+            st.success("Adminzugang gewährt.")
+        elif entered_pin:
+            st.error("Falscher Admin PIN.")
+
+    if st.session_state.admin_access_granted:
+        st.session_state.entered_pin_admin = None  # Remove PIN input after success
+        st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+
+        # Example of options within the admin panel
+        if st.session_state.get_together_started:
+            if not st.session_state.confirmation_needed:
+                if st.button("GetTogether beenden"):
+                    st.session_state.confirmation_needed = True
+            confirm_end_get_together()  # Handle confirmation for ending the event
+
+
+def confirm_end_get_together():
+    if st.session_state.confirmation_needed:
+        confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password")
+        if confirmation_pin and confirmation_pin == st.session_state.pin:
+            end_get_together()  # Call function to end the event
+            reset_session_state()  # Reset everything after the event ends
+            st.session_state.confirmation_needed = False
+        elif confirmation_pin:
+            st.error("Falscher PIN. Bitte erneut eingeben.")
+
+
+def reset_session_state():
+    st.session_state.page = 'home'
+    st.session_state.get_together_started = False
+    st.session_state.selected_company = None
+    st.session_state.selected_team = None
+    st.session_state.selected_employee = None
+    st.session_state.attendance_data = []
+    st.session_state.pin = None  # Reset the PIN after the event ends
+    st.session_state.admin_access_granted = False  # Reset admin access
+    st.session_state.show_admin_panel = False  # Close admin panel
+
+
+
+# Call to start the navigation
+initialize_session_state()
 navigate()
