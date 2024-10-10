@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import requests
+from datetime import datetime
 
 # Webseite Farben und Design anpassen
 st.markdown(
@@ -87,6 +87,8 @@ def initialize_session_state():
         st.session_state.guest_name = None
     if 'entered_pin' not in st.session_state:
         st.session_state.entered_pin = ''
+    if 'attendance_data' not in st.session_state:
+        st.session_state.attendance_data = []
 
 initialize_session_state()
 
@@ -106,19 +108,15 @@ def select_team_callback(team):
 # Callback function für die Auswahl eines Mitarbeiters
 def select_employee_callback(employee):
     st.session_state.selected_employee = employee
-    # Senden der Anwesenheitsdaten an den Backend-Server
-    data = {
-        'name': employee,
-        'company': st.session_state.selected_company
+    # Anwesenheitsdaten direkt speichern
+    attendance_record = {
+        'Name': employee,
+        'Firma': st.session_state.selected_company,
+        'Team': st.session_state.selected_team,
+        'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-    try:
-        response = requests.post('http://localhost:5000/add', json=data)
-        if response.status_code == 200:
-            st.success(f"Anwesenheit von {employee} erfolgreich erfasst!")
-        else:
-            st.error("Fehler beim Speichern der Anwesenheit.")
-    except Exception as e:
-        st.error(f"Fehler beim Verbinden mit dem Server: {e}")
+    st.session_state.attendance_data.append(attendance_record)
+    st.success(f"Anwesenheit von {employee} erfolgreich erfasst!")
 
     # Zurück zur Firmenauswahl
     st.session_state.page = 'select_company'
@@ -145,19 +143,15 @@ def start_get_together():
 def submit_guest():
     guest_name = st.session_state.guest_name
     if guest_name:
-        # Senden der Anwesenheitsdaten an den Backend-Server
-        data = {
-            'name': guest_name,
-            'company': 'Gast'
+        # Anwesenheitsdaten direkt speichern
+        attendance_record = {
+            'Name': guest_name,
+            'Firma': 'Gast',
+            'Team': 'Gast',
+            'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
-        try:
-            response = requests.post('http://localhost:5000/add', json=data)
-            if response.status_code == 200:
-                st.success(f"Anwesenheit von Gast '{guest_name}' erfolgreich erfasst!")
-            else:
-                st.error("Fehler beim Speichern der Anwesenheit.")
-        except Exception as e:
-            st.error(f"Fehler beim Verbinden mit dem Server: {e}")
+        st.session_state.attendance_data.append(attendance_record)
+        st.success(f"Anwesenheit von Gast '{guest_name}' erfolgreich erfasst!")
 
         # Zurück zur Firmenauswahl
         st.session_state.page = 'select_company'
@@ -168,8 +162,20 @@ def submit_guest():
 
 # Callback function zum Beenden des GetTogether
 def end_get_together():
-    st.success("GetTogether wurde beendet.")
-    # Zurücksetzen der Session State Variablen
+    # Generiere das detaillierte Anwesenheitsdokument lokal
+    if st.session_state.attendance_data:
+        attendance_df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_{timestamp}.csv"
+        try:
+            attendance_df.to_csv(file_name, index=False, encoding='utf-8')
+            st.success(f"Anwesenheitsdokument '{file_name}' erfolgreich erstellt.")
+        except Exception as e:
+            st.error(f"Fehler beim Erstellen des Anwesenheitsdokuments: {e}")
+    else:
+        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
+
+    # Zurücksetzen der Session State Variablen und zur Startseite navigieren
     st.session_state.page = 'home'
     st.session_state.get_together_started = False
     st.session_state.selected_company = None
@@ -177,6 +183,7 @@ def end_get_together():
     st.session_state.selected_employee = None
     st.session_state.pin = None
     st.session_state.show_options_panel = False
+    st.session_state.attendance_data = []
 
 # Callback function zum Zurückkehren zur Firmenauswahl
 def go_back_to_company():
@@ -206,13 +213,13 @@ def home():
         st.warning(f"Banner wurde nicht gefunden: {banner_path}")
 
     st.markdown("<div class='sub-header'>Bitte PIN setzen und GetTogether beginnen:</div>", unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns(2)
     with col1:
         st.text_input("Setze einen PIN für das GetTogether:", type="password", key="pin1")
     with col2:
         st.text_input("Bestätige den PIN:", type="password", key="pin2")
-    
+
     st.button("GetTogether beginnen", on_click=start_get_together)
 
 def select_company():
@@ -296,33 +303,25 @@ def select_company():
 
         if st.session_state.show_options_panel:
             # Options Panel anzeigen
-            st.markdown(
-                """
-                <div class='options-panel'>
-                """,
-                unsafe_allow_html=True
-            )
-            entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_panel")
-            if entered_pin:
-                if entered_pin == st.session_state.pin:
-                    if st.button("GetTogether beenden", key="end_get_together_panel"):
-                        end_get_together()
-                else:
-                    st.error("Falscher PIN.")
-            if st.button("Abbrechen", key="cancel_options_panel"):
-                st.session_state.show_options_panel = False
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container():
+                st.markdown("<div class='options-panel'>", unsafe_allow_html=True)
+                entered_pin = st.text_input("PIN eingeben", type="password", key="entered_pin_panel")
+                if entered_pin:
+                    if entered_pin == st.session_state.pin:
+                        st.button("GetTogether beenden", key="end_get_together_panel", on_click=end_get_together)
+                    else:
+                        st.error("Falscher PIN.")
+                st.button("Abbrechen", key="cancel_options_panel", on_click=lambda: setattr(st.session_state, 'show_options_panel', False))
+                st.markdown("</div>", unsafe_allow_html=True)
 
-# Funktion für die Gästeinformation
 def guest_info():
     st.markdown("<div class='sub-header'>Bitte Ihren Namen eingeben:</div>", unsafe_allow_html=True)
-    
+
     st.text_input("Name:", key="guest_name")
     st.button("Anwesenheit erfassen", on_click=submit_guest)
 
     st.button("Zurück", on_click=go_back_to_company)
 
-# Funktion für die Teamauswahl
 def select_team():
     st.markdown(f"<div class='sub-header'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
 
@@ -357,7 +356,6 @@ def select_team():
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_company)
 
-# Funktion für die Mitarbeiterauswahl
 def select_employee():
     st.markdown(f"<div class='sub-header'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
 
