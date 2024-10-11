@@ -181,17 +181,19 @@ def display_header():
             st.error(f"Fehler beim Laden des Banners: {e}")
     else:
         st.warning(f"Banner wurde nicht gefunden: {banner_path}")
-    
+
     # Rechte Seite: Nur anzeigen, wenn GetTogether gestartet wurde
     if st.session_state.get_together_started:
         col1, col2 = st.columns([9, 1])
         with col2:
             if st.button("⚙️", key="settings_button"):
-                st.session_state.show_admin_panel = not st.session_state.show_admin_panel  # Toggle admin panel visibility
+                # Toggle admin panel visibility and reset admin access if it is hidden
+                if st.session_state.show_admin_panel:
+                    st.session_state.show_admin_panel = False
+                    st.session_state.admin_access_granted = False
+                else:
+                    st.session_state.show_admin_panel = True
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-
 
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
@@ -287,7 +289,6 @@ def submit_guest():
     else:
         st.error("Bitte geben Sie Ihren Namen ein.")
 
-
 # Callback function zum Zurückkehren zur Firmenauswahl
 def go_back_to_company():
     st.session_state.page = 'select_company'
@@ -326,9 +327,6 @@ def end_get_together():
     
     reset_session_state()  # Reset session state after the event ends
 
-
-
-# Show admin options after successful PIN entry and hide the company selection and PIN input
 def admin_panel():
     # Timeout after inactivity
     timeout_duration = 300
@@ -338,65 +336,76 @@ def admin_panel():
         st.session_state.show_admin_panel = False
         st.session_state.page = 'select_company'
 
-    if not st.session_state.admin_access_granted:
+    # Only show the PIN input if admin access has not been granted yet and settings button was clicked
+    if not st.session_state.admin_access_granted and st.session_state.show_admin_panel:
         entered_pin = st.text_input("Admin PIN eingeben", type="password", key="entered_pin_admin")
         if entered_pin and entered_pin == st.session_state.pin:
             st.session_state.admin_access_granted = True
-            st.session_state.show_company_selection = False  # Hide company logos
             st.session_state.last_interaction_time = time.time()
             st.success("Adminzugang gewährt.")
         elif entered_pin:
             st.error("Falscher Admin PIN.")
 
+    # Once the admin access is granted, show the admin options
     if st.session_state.admin_access_granted:
-        st.session_state.entered_pin_admin = None  # Hide the PIN input after success
         st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+
+        # Display list of signed-in employees with the option to remove them
+        if st.session_state.attendance_data:
+            st.markdown("<div class='sub-header'>Angemeldete Mitarbeiter:</div>", unsafe_allow_html=True)
+            
+            for idx, record in enumerate(st.session_state.attendance_data):
+                # Display each attendance entry with a remove button
+                st.write(f"{idx + 1}. **Name:** {record['Name']}, **Firma:** {record['Firma']}, **Zeit:** {record['Zeit']}")
+                if st.button(f"Eintrag löschen {idx + 1}", key=f"remove_{record['ID']}"):
+                    delete_attendance_record(record['ID'])
+                    st.experimental_rerun()  # Rerun to reflect changes after removal
+
+        else:
+            st.warning("Keine Mitarbeiter angemeldet.")
 
         # Option to end GetTogether with confirmation
         if st.session_state.get_together_started:
             if not st.session_state.confirmation_needed:
                 if st.button("GetTogether beenden"):
                     st.session_state.confirmation_needed = True
-                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                    st.session_state.last_interaction_time = time.time()
 
-            # Confirm the PIN again before ending the event
             if st.session_state.confirmation_needed:
-                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password")
+                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password", key="confirmation_pin_unique")
                 if confirmation_pin and confirmation_pin == st.session_state.pin:
                     end_get_together()
                     st.session_state.confirmation_needed = False
-                    st.session_state.admin_access_granted = False  # Reset admin access after ending the event
+                    st.session_state.admin_access_granted = False
                 elif confirmation_pin:
                     st.error("Falscher PIN. Bitte erneut eingeben.")
-                st.session_state.last_interaction_time = time.time()  # Update interaction time
+                st.session_state.last_interaction_time = time.time()
 
-        # Option to change the admin PIN (requires current PIN confirmation)
+        # Option to change the admin PIN
         st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
-        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin_unique")
         if current_pin == st.session_state.pin:
-            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1")
-            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2")
-
+            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1_unique")
+            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2_unique")
             if new_pin1 and new_pin2:
                 if new_pin1 == new_pin2:
                     st.session_state.pin = new_pin1
                     st.success("PIN wurde erfolgreich geändert!")
-                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                    st.session_state.last_interaction_time = time.time()
                 else:
                     st.error("Die neuen PINs stimmen nicht überein.")
         elif current_pin and current_pin != st.session_state.pin:
             st.error("Aktueller PIN ist falsch.")
 
-        # Option to save the attendance data
+        # Save attendance data
         st.markdown("<div class='sub-header'>Anwesenheitsdokument speichern:</div>", unsafe_allow_html=True)
         if st.button("Anwesenheit speichern"):
             save_attendance()
-            st.session_state.last_interaction_time = time.time()  # Update interaction time
+            st.session_state.last_interaction_time = time.time()
 
-        # Admin panel cancel button
+        # Cancel admin panel
         st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'admin_access_granted', False))
 
-    # Update last interaction time if any interaction happens
     if st.session_state.admin_access_granted:
         st.session_state.last_interaction_time = time.time()
 
@@ -437,65 +446,63 @@ def home():
 def select_company():
     display_header()
 
-    st.markdown("<div class='important-text'>Bitte Firma auswählen:</div>", unsafe_allow_html=True)
+    # Only show the company selection if the admin panel isn't triggered or access is already granted
+    if not st.session_state.show_admin_panel or st.session_state.admin_access_granted:
+        st.markdown("<div class='important-text'>Bitte Firma auswählen:</div>", unsafe_allow_html=True)
 
-    # Firmen mit Logos (ohne "SUB")
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    logo_dir = os.path.join(script_dir, "logos")
-    company_logos = {
-        "4K Analytics": os.path.join(logo_dir, "4K ANALYTICS.png"),
-        "CLINIBOTS": os.path.join(logo_dir, "CLINIBOTS.png"),
-        "GREENBAY research": os.path.join(logo_dir, "GREENBAY research.png"),
-        "InfAI Management": os.path.join(logo_dir, "InfAI Management.png"),
-        "iNNO3": os.path.join(logo_dir, "iNNO3.png"),
-        "Lieblingsimmobilien": os.path.join(logo_dir, "Lieblingsimmobilien.png"),
-        "Termingo": os.path.join(logo_dir, "TERMINGO.png"),
-        "Visgato": os.path.join(logo_dir, "visgato.png"),
-        "WIG2": os.path.join(logo_dir, "WIG2.png"),
-        "SUV": os.path.join(logo_dir, "SUV.png"),
-        "Externe Partner": os.path.join(logo_dir, "Externe Partner.png"),
-        "Gast": os.path.join(logo_dir, "Gast.png")
-        # "SUB" wurde entfernt
-    }
+        # Firmen mit Logos (ohne "SUB")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_dir = os.path.join(script_dir, "logos")
+        company_logos = {
+            "4K Analytics": os.path.join(logo_dir, "4K ANALYTICS.png"),
+            "CLINIBOTS": os.path.join(logo_dir, "CLINIBOTS.png"),
+            "GREENBAY research": os.path.join(logo_dir, "GREENBAY research.png"),
+            "InfAI Management": os.path.join(logo_dir, "InfAI Management.png"),
+            "iNNO3": os.path.join(logo_dir, "iNNO3.png"),
+            "Lieblingsimmobilien": os.path.join(logo_dir, "Lieblingsimmobilien.png"),
+            "Termingo": os.path.join(logo_dir, "TERMINGO.png"),
+            "Visgato": os.path.join(logo_dir, "visgato.png"),
+            "WIG2": os.path.join(logo_dir, "WIG2.png"),
+            "SUV": os.path.join(logo_dir, "SUV.png"),
+            "Externe Partner": os.path.join(logo_dir, "Externe Partner.png"),
+            "Gast": os.path.join(logo_dir, "Gast.png")
+        }
 
-    # Gesamtliste der Firmen (inkl. mit und ohne Logos), "SUB" entfernt
-    all_companies = [
-        "4K Analytics",
-        "CLINIBOTS",
-        "GREENBAY research",
-        "InfAI Management",
-        "iNNO3",
-        "Lieblingsimmobilien",
-        "Termingo",
-        "Visgato",
-        "WIG2",
-        "SUV",
-        "Externe Partner",
-        "Gast"
-    ]
+        all_companies = [
+            "4K Analytics",
+            "CLINIBOTS",
+            "GREENBAY research",
+            "InfAI Management",
+            "iNNO3",
+            "Lieblingsimmobilien",
+            "Termingo",
+            "Visgato",
+            "WIG2",
+            "SUV",
+            "Externe Partner",
+            "Gast"
+        ]
 
-    # Gitter-Layout: 4 Spalten
-    num_cols = 4
-    companies_per_row = [all_companies[i:i + num_cols] for i in range(0, len(all_companies), num_cols)]
+        # Display companies in a grid
+        num_cols = 4
+        companies_per_row = [all_companies[i:i + num_cols] for i in range(0, len(all_companies), num_cols)]
 
-    # Anzeigen der Firmen in einem Gitter
-    for row in companies_per_row:
-        cols = st.columns(num_cols)
-        for col, company in zip(cols, row):
-            with col:
-                if company in company_logos and os.path.exists(company_logos[company]):
-                    try:
-                        with open(company_logos[company], "rb") as f:
-                            image = f.read()
-                        # Anzeigen des Bildes mit einheitlicher Breite
-                        st.image(image, width=150)
-                        # Klickbarer Button unter dem Bild
+        for row in companies_per_row:
+            cols = st.columns(num_cols)
+            for col, company in zip(cols, row):
+                with col:
+                    if company in company_logos and os.path.exists(company_logos[company]):
+                        try:
+                            with open(company_logos[company], "rb") as f:
+                                image = f.read()
+                            st.image(image, width=150)
+                            st.button("Auswählen", key=f"select_{company}", on_click=select_company_callback, args=(company,))
+                        except Exception as e:
+                            st.error(f"Fehler beim Laden des Logos für {company}: {e}")
+                    else:
                         st.button("Auswählen", key=f"select_{company}", on_click=select_company_callback, args=(company,))
-                    except Exception as e:
-                        st.error(f"Fehler beim Laden des Logos für {company}: {e}")
-                else:
-                    # Firmen ohne Logos (falls vorhanden)
-                    st.button("Auswählen", key=f"select_{company}", on_click=select_company_callback, args=(company,))
+
+
 
 def guest_info():
     display_header()
@@ -625,78 +632,95 @@ def select_employee():
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_team_from_employee)
 
-
 def admin_panel():
-    # Define timeout in seconds (e.g., 300 seconds = 5 minutes)
+    # Timeout after inactivity
     timeout_duration = 300
-
-    # Check if the admin access has timed out
     if st.session_state.admin_access_granted and (time.time() - st.session_state.last_interaction_time > timeout_duration):
         st.warning("Admin-Panel wegen Inaktivität geschlossen.")
         st.session_state.admin_access_granted = False
         st.session_state.show_admin_panel = False
+        st.session_state.page = 'select_company'
 
-    # Show the PIN input only if admin access has not been granted yet
-    if not st.session_state.admin_access_granted:
+    # Show the "Admin Panel" title and PIN input only if admin access is not yet granted
+    if not st.session_state.admin_access_granted and st.session_state.show_admin_panel:
+        st.markdown("<div class='options-title'>Admin Panel</div>", unsafe_allow_html=True)
         entered_pin = st.text_input("Admin PIN eingeben", type="password", key="entered_pin_admin")
-
-        # Check if the entered PIN matches the current event PIN
         if entered_pin and entered_pin == st.session_state.pin:
-            st.session_state.admin_access_granted = True  # Grant admin access
-            st.session_state.last_interaction_time = time.time()  # Reset the interaction time
+            st.session_state.admin_access_granted = True
+            st.session_state.last_interaction_time = time.time()
             st.success("Adminzugang gewährt.")
+            # Hide the PIN input after successful entry
+            st.session_state.show_admin_pin_input = False  # Control PIN input visibility with session state
+        elif entered_pin:
+            st.error("Falscher Admin PIN.")
 
-    # Once admin access is granted, hide the PIN input field and show admin options
+    # Once the admin access is granted, show the admin options
     if st.session_state.admin_access_granted:
         st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+
+        # Display attendance data with the option to delete records
+        if st.session_state.attendance_data:
+            st.markdown("<div class='sub-header'>Angemeldete Mitarbeiter:</div>", unsafe_allow_html=True)
+
+            # Display attendance data in a dataframe
+            attendance_df = pd.DataFrame(st.session_state.attendance_data)
+            st.dataframe(attendance_df[['Name', 'Firma', 'Team', 'Zeit']])
+
+            # Provide delete buttons for each record
+            for record in st.session_state.attendance_data:
+                if st.button(f"Löschen von {record['Name']} am {record['Zeit']}", key=f"delete_{record['ID']}"):
+                    delete_attendance_record(record['ID'])
+                    st.session_state.show_admin_panel = True  # Keep showing admin panel after delete
+
+        else:
+            st.warning("Keine Mitarbeiter angemeldet.")
 
         # Option to end GetTogether with confirmation
         if st.session_state.get_together_started:
             if not st.session_state.confirmation_needed:
                 if st.button("GetTogether beenden"):
                     st.session_state.confirmation_needed = True
-                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                    st.session_state.last_interaction_time = time.time()
 
-            # Confirm the PIN again before ending the event
             if st.session_state.confirmation_needed:
-                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password")
+                confirmation_pin = st.text_input("Bestätigen Sie den PIN zum Beenden", type="password", key="confirmation_pin_unique")
                 if confirmation_pin and confirmation_pin == st.session_state.pin:
                     end_get_together()
                     st.session_state.confirmation_needed = False
-                    st.session_state.admin_access_granted = False  # Reset admin access after ending the event
+                    st.session_state.admin_access_granted = False
                 elif confirmation_pin:
                     st.error("Falscher PIN. Bitte erneut eingeben.")
-                st.session_state.last_interaction_time = time.time()  # Update interaction time
+                st.session_state.last_interaction_time = time.time()
 
-        # Option to change the admin PIN (requires current PIN confirmation)
+        # Option to change the admin PIN
         st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
-        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin_unique")
         if current_pin == st.session_state.pin:
-            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1")
-            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2")
-
+            new_pin1 = st.text_input("Neuen PIN eingeben", type="password", key="new_pin1_unique")
+            new_pin2 = st.text_input("Neuen PIN bestätigen", type="password", key="new_pin2_unique")
             if new_pin1 and new_pin2:
                 if new_pin1 == new_pin2:
                     st.session_state.pin = new_pin1
                     st.success("PIN wurde erfolgreich geändert!")
-                    st.session_state.last_interaction_time = time.time()  # Update interaction time
+                    st.session_state.last_interaction_time = time.time()
                 else:
                     st.error("Die neuen PINs stimmen nicht überein.")
         elif current_pin and current_pin != st.session_state.pin:
             st.error("Aktueller PIN ist falsch.")
 
-        # Option to save the attendance data
+        # Save attendance data
         st.markdown("<div class='sub-header'>Anwesenheitsdokument speichern:</div>", unsafe_allow_html=True)
         if st.button("Anwesenheit speichern"):
             save_attendance()
-            st.session_state.last_interaction_time = time.time()  # Update interaction time
+            st.session_state.last_interaction_time = time.time()
 
-        # Admin panel cancel button
-        st.button("Abbrechen", key="cancel_admin_panel", on_click=lambda: setattr(st.session_state, 'admin_access_granted', False))
+        # Cancel admin panel
+        if st.button("Abbrechen", key="cancel_admin_panel"):
+            st.session_state.admin_access_granted = False
+            st.session_state.show_admin_panel = False
+            st.experimental_rerun()  # Rerun to hide the admin panel
 
-    # Update last interaction time if any interaction happens
-    if st.session_state.admin_access_granted:
-        st.session_state.last_interaction_time = time.time()
+
 
 
 def navigate():
