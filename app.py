@@ -7,110 +7,125 @@ from datetime import datetime, timedelta
 import threading
 import uuid
 import time
+from math import ceil
 import base64
+
+VERSION = "1.0.0"
 
 
 st.markdown(
     """
     <style>
-    /* Allgemeine Schriftarten und Farben */
+    /* General styles */
     body {
         font-family: Arial, sans-serif;
-        background-color: #FFFFFF; /* Weißer Hintergrund */
+        background-color: #FFFFFF;
     }
-    /* Titel-Stil */
     .title {
-        color: #f9c61e; /* Gelb passend zur Webseite */
-        font-size: 34px;
+        color: #f9c61e;
+        font-size: 36px;  /* Increased font size */
         font-weight: bold;
         text-align: center;
-        margin-top: 20px;
-        margin-bottom: 20px;
+        margin: 30px 0;  /* Increased margin */
     }
-    /* Sub-Header-Stil */
     .sub-header {
-        color: #0095be; /* Blauton passend zur Webseite */
-        font-size: 26px;
+        color: #0095be;
+        font-size: 28px;  /* Increased font size */
         font-weight: bold;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;  /* Increased margin */
     }
-    /* Wichtige Textabschnitte */
     .important-text {
         color: #000000;
-        font-size: 20px;
+        font-size: 24px;  /* Increased font size */
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;  /* Increased margin */
     }
-    /* Button-Stil - Minimalistisch und Outline */
-    .stButton>button {
-        border-radius: 12px;
-        font-size: 18px;
-        padding: 15px;
+    /* Button styles */
+    .stButton > button {
+        border-radius: 15px;  /* Increased border radius */
+        font-size: 20px;  /* Increased font size */
+        padding: 20px;  /* Increased padding */
+        min-height: 70px;  /* Increased minimum height */
         width: 100%;
-        min-height: 60px; /* Größere Höhe für einfache Bedienung */
-        border: 2px solid #f9c61e; /* Gelbe Umrandung */
-        background-color: #FFFFFF; /* Weißer Hintergrund */
-        color: #0095be; /* Blaue Schrift */
+        border: 2px solid #f9c61e;
+        background-color: #FFFFFF;
+        color: #0095be;
         text-align: center;
         white-space: normal;
         word-wrap: break-word;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Leichter Schatten für Button */
-        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; /* Weicher Übergang bei Hover */
+        box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.1);  /* Increased shadow */
+        transition: all 0.3s ease;
     }
-    /* Hover-Effekt für Buttons */
-    .stButton>button:hover {
-        background-color: #f9c61e; /* Gelber Hintergrund beim Hover */
-        color: #ffffff; /* Weiße Schrift beim Hover */
-        border-color: #f9c61e; /* Gelb bleibt */
+    .stButton > button:hover {
+        background-color: #f9c61e;
+        color: #ffffff;
+        transform: translateY(-2px);  /* Slight lift effect on hover */
     }
-    /* TextInput-Stil */
-    .stTextInput>div>div>input {
-        border-radius: 12px;
-        font-size: 18px;
-        padding: 12px;
-        border: 2px solid #0095be; /* Blaue Umrandung */
-        background-color: #f9f9f9; /* Leichtes Grau für Eingabefelder */
+    /* Input field styles */
+    .stTextInput > div > div > input {
+        border-radius: 15px;  /* Increased border radius */
+        font-size: 20px;  /* Increased font size */
+        padding: 15px;  /* Increased padding */
+        border: 2px solid #0095be;
+        background-color: #f9f9f9;
         color: #000000;
     }
-    /* Optionen-Panel und Admin-Panel-Stil */
-    .options-panel {
-        background-color: #FFFFFF;
-        padding: 20px;
-        border: 2px solid #0095be;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        width: 100%;
-        max-width: 400px;
-        margin: 0 auto;
-    }
-    .options-title {
-        font-size: 24px;
-        margin-bottom: 10px;
+    /* Company logo styles */
+    .company-container {
         text-align: center;
-        color: #f9c61e;
-        font-weight: bold;
+        padding: 15px;
+        margin: 15px;
     }
-    /* Anwesenheits-Tabelle */
+    .company-logo {
+        width: 100%;
+        max-width: 180px;  /* Increased max width for logos */
+        display: block;
+        margin: 0 auto 15px;  /* Added bottom margin */
+        pointer-events: none;
+    }
+    /* Custom message styles */
+    .custom-message {
+    padding: 15px;
+    margin-bottom: 25px;
+    font-size: 20px;
+    color: #0095be;
+    text-align: center;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    }
+    /* Attendance table styles */
     .attendance-table {
-        max-height: 300px;
+        max-height: 400px;  /* Increased max height */
         overflow-y: auto;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
     }
-    /* Header-Layout */
+    /* Header layout */
     .header-container {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding: 10px 0;  /* Added padding */
     }
-    /* Banner-Stil */
+    /* Banner style */
     .banner {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;  /* Increased margin */
     }
-</style>
+    /* Language toggle button */
+    .language-toggle {
+        font-size: 18px;  /* Increased font size */
+        padding: 10px 15px;  /* Increased padding */
+        border-radius: 10px;  /* Rounded corners */
+        background-color: #f9c61e;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+    </style>
     """,
     unsafe_allow_html=True
 )
@@ -156,12 +171,16 @@ def initialize_session_state():
         st.session_state.custom_event_name = "GetTogether"
     if 'end_time' not in st.session_state:
         st.session_state.end_time = None
+    if 'custom_message' not in st.session_state:
+        st.session_state.custom_message = ''
+    if 'language' not in st.session_state:
+        st.session_state.language = 'DE'    
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
     st.session_state.selected_company = company
-    if company == "Gast":
+    if company in [get_text("Gast", "Guest"), "Gast", "Guest"]:  # Check for both German and English versions
         st.session_state.page = 'guest_info'
     else:
         st.session_state.page = 'select_team'
@@ -176,6 +195,9 @@ def select_team_callback(team):
     st.session_state.page = 'select_employee'
 # Callback function für die Auswahl eines Mitarbeiters
 
+def get_text(de_text, en_text):
+    return de_text if st.session_state.language == 'DE' else en_text
+
 def select_employee_callback(employee):
     st.session_state.selected_employee = employee
     # Anwesenheitsdaten direkt speichern mit einer eindeutigen ID
@@ -187,13 +209,31 @@ def select_employee_callback(employee):
         'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     st.session_state.attendance_data.append(attendance_record)
-    st.success(f"Anwesenheit von {employee} erfolgreich erfasst!")
-    # Zurück zur Firmenauswahl
+    
+    # Automatically save the updated attendance list
+    auto_save_attendance()
+    
+    # Success message and countdown
+    success_message = st.empty()
+    countdown = st.empty()
+    
+    success_message.success(f"Anwesenheit von {employee} erfolgreich erfasst!")
+    
+    # 10-second countdown
+    for i in range(10, 0, -1):
+        countdown.info(f"Zurück zur Firmenauswahl in {i} Sekunden...")
+        time.sleep(1)
+    
+    # Clear messages
+    success_message.empty()
+    countdown.empty()
+    
+    # Reset states and return to company selection
     st.session_state.page = 'select_company'
     st.session_state.selected_company = None
     st.session_state.selected_team = None
     st.session_state.selected_employee = None
-# Function to save attendance outside of ending GetTogether
+    st.rerun()
 
 def save_attendance():
     if st.session_state.attendance_data:
@@ -380,75 +420,132 @@ st.markdown(
 
 def admin_settings():
     """
-    Function to display the Admin Einstellungen with attendance management and PIN change option.
+    Function to display the Admin Einstellungen with attendance management, 
+    PIN change option, event name change, automatic end time adjustment,
+    and custom message setting.
     """
-    st.markdown("<div class='options-title'>Admin Einstellungen</div>", unsafe_allow_html=True)
+    # Styled and centered title
+    st.markdown(
+        f"""
+        <div style="
+            color: #f9c61e;
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0 30px 0;
+        ">
+            {get_text('Admin Einstellungen', 'Admin Settings')}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Custom Message Setting
+    st.markdown(f"<div class='sub-header'>{get_text('Benutzerdefinierte Nachricht:', 'Custom Message:')}</div>", unsafe_allow_html=True)
+    custom_message = st.text_area(
+        get_text("Nachricht über der Firmenauswahl eingeben:", "Enter message to display above company selection:"),
+        value=st.session_state.get('custom_message', ''),
+        help=get_text("Diese Nachricht wird zentriert über der Firmenauswahl angezeigt. Lassen Sie das Feld leer, um keine Nachricht anzuzeigen.",
+                      "This message will be displayed centered above the company selection. Leave empty for no message.")
+    )
+    if st.button(get_text("Nachricht aktualisieren", "Update Message")):
+        st.session_state.custom_message = custom_message
+        st.success(get_text("Benutzerdefinierte Nachricht wurde aktualisiert.", "Custom message has been updated."))
+
+    # Event Name Change
+    st.markdown(f"<div class='sub-header'>{get_text('Event Name ändern:', 'Change Event Name:')}</div>", unsafe_allow_html=True)
+    new_event_name = st.text_input(get_text("Neuer Event Name:", "New Event Name:"), value=st.session_state.custom_event_name)
+    if st.button(get_text("Event Name aktualisieren", "Update Event Name")):
+        st.session_state.custom_event_name = new_event_name
+        st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
+
+    # Automatic End Time Adjustment
+    st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende anpassen:', 'Adjust Automatic End Time:')}</div>", unsafe_allow_html=True)
+    new_end_time = st.time_input(
+        get_text("Neues automatisches Ende:", "New automatic end time:"),
+        value=st.session_state.end_time.time() if st.session_state.end_time else None
+    )
+    if st.button(get_text("Endzeit aktualisieren", "Update End Time")):
+        if new_end_time:
+            new_end_datetime = datetime.combine(datetime.today(), new_end_time)
+            if new_end_datetime > datetime.now():
+                st.session_state.end_time = new_end_datetime
+                st.success(get_text(f"Automatisches Ende wurde auf {new_end_time.strftime('%H:%M')} Uhr gesetzt.",
+                                    f"Automatic end time has been set to {new_end_time.strftime('%H:%M')}."))
+            else:
+                st.error(get_text("Die neue Endzeit muss in der Zukunft liegen.", "The new end time must be in the future."))
+        else:
+            st.session_state.end_time = None
+            st.success(get_text("Automatisches Ende wurde entfernt.", "Automatic end time has been removed."))
 
     # Option to end GetTogether
     if st.session_state.get_together_started:
-        st.markdown("<div class='sub-header'>GetTogether beenden:</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            end_pin = st.text_input("PIN eingeben zum Beenden des GetTogethers:", type="password", key="end_pin")
+            end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
         with col2:
-            if st.button("GetTogether beenden"):
+            if st.button(get_text("GetTogether beenden", "End GetTogether")):
                 if end_pin == st.session_state.pin:
                     if end_get_together():
-                        st.success("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.")
+                        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
+                                            "GetTogether has been ended and the attendance list has been saved."))
                         st.rerun()
                 else:
-                    st.error("Falscher PIN. GetTogether konnte nicht beendet werden.")
+                    st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
+                                      "Incorrect PIN. GetTogether could not be ended."))
 
     # Display current attendees
-    st.markdown("<div class='sub-header'>Aktuelle Anwesenheitsliste:</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste:', 'Current Attendance List:')}</div>", unsafe_allow_html=True)
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
         st.dataframe(df[['Name', 'Firma', 'Team', 'Zeit']])
 
         # Option to delete an attendee
-        st.markdown("<div class='sub-header'>Teilnehmer entfernen:</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='sub-header'>{get_text('Teilnehmer entfernen:', 'Remove Participant:')}</div>", unsafe_allow_html=True)
         
         name_to_id = {f"{record['Name']} ({record['Firma']})": record['ID'] for record in st.session_state.attendance_data}
         attendee_names = list(name_to_id.keys())
         
-        selected_name = st.selectbox("Wählen Sie einen Teilnehmer zum Entfernen:", 
+        selected_name = st.selectbox(get_text("Wählen Sie einen Teilnehmer zum Entfernen:", "Select a participant to remove:"), 
                                      options=attendee_names)
         
-        if st.button("Teilnehmer entfernen"):
+        if st.button(get_text("Teilnehmer entfernen", "Remove Participant")):
             if selected_name:
                 selected_id = name_to_id[selected_name]
                 delete_attendance_record(selected_id)
-                st.success(f"{selected_name} wurde aus der Anwesenheitsliste entfernt.")
+                st.success(get_text(f"{selected_name} wurde aus der Anwesenheitsliste entfernt.",
+                                    f"{selected_name} has been removed from the attendance list."))
                 st.rerun()
             else:
-                st.warning("Bitte wählen Sie einen Teilnehmer aus.")
+                st.warning(get_text("Bitte wählen Sie einen Teilnehmer aus.", "Please select a participant."))
 
         # Option to save current attendance list
-        st.markdown("<div class='sub-header'>Aktuelle Anwesenheitsliste speichern:</div>", unsafe_allow_html=True)
-        if st.button("Anwesenheitsliste speichern"):
+        st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste speichern:', 'Save Current Attendance List:')}</div>", unsafe_allow_html=True)
+        if st.button(get_text("Anwesenheitsliste speichern", "Save Attendance List")):
             save_current_attendance()
     else:
-        st.info("Noch keine Teilnehmer angemeldet.")
+        st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
     # PIN change option in an expander
-    with st.expander("PIN ändern"):
-        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
-        new_pin = st.text_input("Neuen PIN eingeben", type="password", key="new_pin")
-        confirm_new_pin = st.text_input("Neuen PIN bestätigen", type="password", key="confirm_new_pin")
+    with st.expander(get_text("PIN ändern", "Change PIN")):
+        current_pin = st.text_input(get_text("Aktuellen PIN eingeben", "Enter current PIN"), type="password", key="current_pin")
+        new_pin = st.text_input(get_text("Neuen PIN eingeben", "Enter new PIN"), type="password", key="new_pin")
+        confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm new PIN"), type="password", key="confirm_new_pin")
 
-        if st.button("PIN ändern"):
+        if st.button(get_text("PIN ändern", "Change PIN")):
             if current_pin == st.session_state.pin:
                 if new_pin == confirm_new_pin:
                     st.session_state.pin = new_pin
-                    st.success("PIN wurde erfolgreich geändert!")
+                    st.success(get_text("PIN wurde erfolgreich geändert!", "PIN has been successfully changed!"))
                 else:
-                    st.error("Die neuen PINs stimmen nicht überein.")
+                    st.error(get_text("Die neuen PINs stimmen nicht überein.", "The new PINs do not match."))
             else:
-                st.error("Der aktuelle PIN ist falsch.")
+                st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
 
     # Show Zurück button in admin settings
-    if st.button("Zurück", key="admin_settings_back"):
+    if st.button(get_text("Zurück", "Back"), key="admin_settings_back"):
         st.session_state.page = 'select_company'  # Navigate directly to the company selection page
         st.session_state.show_admin_panel = False  # Ensure admin panel is closed
         st.session_state.admin_access_granted = False  # Reset admin access
@@ -484,6 +581,10 @@ def delete_attendance_record(record_id):
     # Note: Success message is now in the admin_settings function for immediate feedback
 
 def save_current_attendance():
+    """
+    Manually saves the current attendance list to a new file.
+    This function creates a new file each time it's called, with a timestamp in the filename.
+    """
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -504,6 +605,7 @@ def save_current_attendance():
             )
     else:
         st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
+
 
 def show_options_wheel():
     """
@@ -534,21 +636,19 @@ def change_pin():
 
 def home():
     display_header()
-    st.markdown("<div class='sub-header'>Bitte PIN setzen und GetTogether konfigurieren:</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('Bitte PIN setzen und GetTogether konfigurieren:', 'Please set PIN and configure GetTogether:')}</div>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
-        pin1 = st.text_input("Setze einen PIN für das GetTogether:", type="password", key="pin1")
+        pin1 = st.text_input(get_text("Setze einen PIN für das GetTogether:", "Set a PIN for the GetTogether:"), type="password", key="pin1")
     with col2:
-        pin2 = st.text_input("Bestätige den PIN:", type="password", key="pin2")
+        pin2 = st.text_input(get_text("Bestätige den PIN:", "Confirm the PIN:"), type="password", key="pin2")
     
-    # Custom event name input
-    custom_event_name = st.text_input("Name des Events (optional):", key="custom_event_name_input")
+    custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
-    # Automatic end time input
-    end_time = st.time_input("Automatisches Ende des Events (optional):", value=None, key="end_time_input")
+    end_time = st.time_input(get_text("Automatisches Ende des Events (optional):", "Automatic end time of the event (optional):"), value=None, key="end_time_input")
     
-    if st.button("GetTogether beginnen"):
+    if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
         if start_get_together(pin1, pin2, custom_event_name, end_time):
             st.session_state.page = 'select_company'
             st.rerun()
@@ -566,16 +666,22 @@ def check_event_end_time():
 def select_company():
     display_header()
     
-    # Always display custom event name
+    if st.session_state.get('custom_message'):
+        st.markdown(
+            f"""
+            <div class='custom-message'>
+                {st.session_state.custom_message}
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+    
     st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
     
-    # Admin panel (placed above the company selection)
     if st.session_state.show_admin_panel:
-        admin_panel()  # Show the admin panel
+        admin_panel()
     
-    # Only show the company selection if admin access is not granted
     if not st.session_state.admin_access_granted:
-        # Firmen mit Logos
         script_dir = os.path.dirname(os.path.abspath(__file__))
         logo_dir = os.path.join(script_dir, "logos")
         company_logos = {
@@ -589,53 +695,17 @@ def select_company():
             "Visgato": os.path.join(logo_dir, "visgato.png"),
             "WIG2": os.path.join(logo_dir, "WIG2.png"),
         }
-        st.markdown("<div class='important-text'>Bitte Firma auswählen:</div>", unsafe_allow_html=True)
-        # Custom CSS for making the logos non-clickable and buttons uniform in size
-        st.markdown("""
-            <style>
-            .company-container {
-                text-align: center;
-                padding: 10px;
-                margin: 10px;
-            }
-            .company-logo {
-                width: 100%;
-                max-width: 150px;  /* Set max width for logos */
-                display: block;
-                margin-left: auto;
-                margin-right: auto;
-                pointer-events: none; /* Prevent clicking on the logo */
-            }
-                    .event-name {
-                color: #f9c61e;
-                font-size: 28px;
-                font-weight: bold;
-                text-align: center;
-                margin-top: 10px;
-                margin-bottom: 20px;
-            }        
-            .fixed-button {
-                width: 100%;  /* Ensures uniform button size */
-                height: 60px;  /* Fixed height for the buttons */
-                font-size: 16px;
-                margin-top: 10px;
-            }
-            .grid-button {
-                text-align: center;
-                width: 100%;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        # Display companies with logos in a 3x3 grid
-        num_cols = 3
+        st.markdown(f"<div class='important-text'>{get_text('Bitte Firma auswählen:', 'Please select a company:')}</div>", unsafe_allow_html=True)
+        
+        num_cols = 3  # You can adjust this to 2 for a more comfortable tablet view if needed
         company_list_with_logos = list(company_logos.keys())
         companies_per_row = [company_list_with_logos[i:i + num_cols] for i in range(0, len(company_list_with_logos), num_cols)]
-        # Display companies with logos
+        
         for row in companies_per_row:
             cols = st.columns(num_cols)
             for col, company in zip(cols, row):
                 with col:
-                    if company in company_logos:  # Display logo for companies with logos
+                    if company in company_logos:
                         logo_path = company_logos.get(company)
                         if logo_path and os.path.exists(logo_path):
                             logo_base64 = base64.b64encode(open(logo_path, 'rb').read()).decode()
@@ -648,71 +718,88 @@ def select_company():
                                 unsafe_allow_html=True
                             )
                     st.button(company, key=company, on_click=select_company_callback, args=(company,), use_container_width=True)
-        # Align SUV, Externe Partner, and Gast buttons in the next row below
-        st.markdown("<hr style='border-top: 1px solid #f9c61e;'>", unsafe_allow_html=True)  # Add a separator line
-        st.markdown("<div class='important-text'>Weitere Auswahl:</div>", unsafe_allow_html=True)
-        cols = st.columns(3)  # Three buttons in one row, aligned below the 3x3 grid
+        
+        st.markdown("<hr style='border-top: 2px solid #f9c61e; margin: 30px 0;'>", unsafe_allow_html=True)
+        st.markdown(f"<div class='important-text'>{get_text('Weitere Auswahl:', 'Additional options:')}</div>", unsafe_allow_html=True)
+        cols = st.columns(3)
         with cols[0]:
             st.button("SUV", key="SUV", on_click=select_company_callback, args=("SUV",), use_container_width=True)
         with cols[1]:
-            st.button("Externe Partner", key="Externe Partner", on_click=select_company_callback, args=("Externe Partner",), use_container_width=True)
+            external_partners = get_text("Externe Partner", "External Partners")
+            st.button(external_partners, key="Externe Partner", on_click=select_company_callback, args=(external_partners,), use_container_width=True)
         with cols[2]:
-            st.button("Gast", key="Gast", on_click=select_company_callback, args=("Gast",), use_container_width=True)
-
+            guest = get_text("Gast", "Guest")
+            st.button(guest, key="Guest", on_click=select_company_callback, args=(guest,), use_container_width=True)
 def guest_info():
     display_header()
-    st.markdown("<div class='sub-header'>Bitte Ihren Namen eingeben:</div>", unsafe_allow_html=True)
-    st.text_input("Name:", key="guest_name")
-    st.text_input("Firma (optional):", key="guest_company")  # Optionales Firmenfeld
-    st.button("Anwesenheit erfassen", on_click=submit_guest)
-    st.button("Zurück", on_click=go_back_to_company)
-# Auswahl der Teams
+    st.markdown(f"<div class='sub-header'>{get_text('Bitte Ihren Namen eingeben:', 'Please enter your name:')}</div>", unsafe_allow_html=True)
+    st.text_input(get_text("Name:", "Name:"), key="guest_name")
+    st.text_input(get_text("Firma (optional):", "Company (optional):"), key="guest_company")
+    st.button(get_text("Anwesenheit erfassen", "Record attendance"), on_click=submit_guest)
+    st.button(get_text("Zurück", "Back"), on_click=go_back_to_company)
+
+
+def toggle_language():
+    if st.session_state.language == 'DE':
+        st.session_state.language = 'EN'
+    else:
+        st.session_state.language = 'DE'
 
 def select_team():
     display_header()
-    st.markdown(f"<div class='important-text'>Firma: {st.session_state.selected_company}</div>", unsafe_allow_html=True)
-    # Read the CSV file instead of Excel
+    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
     if not os.path.exists(file_path):
-        st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
+        st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                          f"The file '{file_path}' was not found. Please check the path and filename."))
         return
     try:
-        # Load CSV with 3 columns: Firma, Team, Mitarbeiter
         df = pd.read_csv(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']  # Assign the columns
-        # Filter teams based on the selected company
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
         teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
     except Exception as e:
-        st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
+        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                          f"Error reading the CSV file: {e}"))
         return
     if len(teams) == 0:
-        st.warning("Keine Teams für die ausgewählte Firma gefunden.")
+        st.warning(get_text("Keine Teams für die ausgewählte Firma gefunden.",
+                            "No teams found for the selected company."))
         return
-    # Teams as buttons
-    st.markdown("<div class='sub-header'>Team auswählen:</div>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    for idx, team in enumerate(teams):
-        with cols[idx % 3]:
-            st.button(team, key=f"team_{team}", on_click=select_team_callback, args=(team,))
+
+    st.markdown(f"<div class='sub-header'>{get_text('Team auswählen:', 'Select a team:')}</div>", unsafe_allow_html=True)
+    
+    # Calculate the number of columns based on the number of teams
+    num_cols = min(3, len(teams))  # Maximum of 3 columns
+    num_rows = ceil(len(teams) / num_cols)
+    
+    # Create a centered container for the buttons
+    container = st.container()
+    with container:
+        for row in range(num_rows):
+            cols = st.columns(num_cols)
+            for col in range(num_cols):
+                idx = row * num_cols + col
+                if idx < len(teams):
+                    with cols[col]:
+                        st.button(teams[idx], key=f"team_{teams[idx]}", on_click=select_team_callback, args=(teams[idx],), use_container_width=True)
+    
     # Zurück Button
-    st.button("Zurück", on_click=go_back_to_company)
-# Auswahl der Mitarbeiter
+    st.button(get_text("Zurück", "Back"), on_click=go_back_to_company)
 
 def select_employee():
     display_header()
     st.markdown(f"<div class='important-text'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
-    # Read the CSV file
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
     if not os.path.exists(file_path):
         st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
         return
     try:
-        # Load CSV with 3 columns: Firma, Team, Mitarbeiter
         df = pd.read_csv(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']  # Assign the columns
-        # Filter employees based on selected company and team
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
         employees = df[(df["Firma"] == st.session_state.selected_company) & 
                        (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
     except Exception as e:
@@ -721,41 +808,101 @@ def select_employee():
     if len(employees) == 0:
         st.warning("Keine Mitarbeiter für das ausgewählte Team gefunden.")
         return
-    # Mitarbeiterauswahl als Buttons mit Mitarbeiternamen als Beschriftung
+
     st.markdown("<div class='sub-header'>Mitarbeiter auswählen:</div>", unsafe_allow_html=True)
-    cols = st.columns(3)
-    for idx, employee in enumerate(employees):
-        with cols[idx % 3]:
-            st.button(employee, key=f"employee_{employee}", on_click=select_employee_callback, args=(employee,))
+    
+    # Calculate the number of columns based on the number of employees
+    num_cols = min(3, len(employees))  # Maximum of 3 columns
+    num_rows = ceil(len(employees) / num_cols)
+    
+    # Create a centered container for the buttons
+    container = st.container()
+    with container:
+        for row in range(num_rows):
+            cols = st.columns(num_cols)
+            for col in range(num_cols):
+                idx = row * num_cols + col
+                if idx < len(employees):
+                    with cols[col]:
+                        st.button(employees[idx], key=f"employee_{employees[idx]}", on_click=select_employee_callback, args=(employees[idx],), use_container_width=True)
+    
     # Zurück Button
     st.button("Zurück", on_click=go_back_to_team_from_employee)
 
 def display_header():
-    st.markdown("<div class='header-container'>", unsafe_allow_html=True)
-    # Linke Seite: Titel und Banner
-    st.markdown("<div class='title'>GetTogether Anwesenheitstool</div>", unsafe_allow_html=True)
-    # Adding the banner
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    logo_dir = os.path.join(script_dir, "logos")
-    banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
-    if os.path.exists(banner_path):
-        try:
-            with open(banner_path, "rb") as f:
-                banner_image = f.read()
-            st.image(banner_image, use_column_width=True)  # Display banner centered and full width
-        except Exception as e:
-            st.error(f"Fehler beim Laden des Banners: {e}")
-    else:
-        st.warning(f"Banner wurde nicht gefunden: {banner_path}")
-    # Show Admin options button only if GetTogether has started
-    if st.session_state.get_together_started:
+    if 'language' not in st.session_state:
+        st.session_state.language = 'DE'
+
+    # Create a container for the header
+    header_container = st.container()
+
+    with header_container:
+        # Title
+        title = get_text("GetTogether Anwesenheitstool", "GetTogether Attendance Tool")
+        st.markdown(f"<div class='title'>{title}</div>", unsafe_allow_html=True)
+        
+        # Banner
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_dir = os.path.join(script_dir, "logos")
+        banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
+        if os.path.exists(banner_path):
+            try:
+                with open(banner_path, "rb") as f:
+                    banner_image = f.read()
+                st.image(banner_image, use_column_width=True)
+            except Exception as e:
+                error_message = get_text("Fehler beim Laden des Banners:", "Error loading banner:")
+                st.error(f"{error_message} {e}")
+        else:
+            warning_message = get_text("Banner wurde nicht gefunden:", "Banner not found:")
+            st.warning(f"{warning_message} {banner_path}")
+        
+        # Admin settings button and language toggle
         col1, col2 = st.columns([9, 1])
         with col2:
-            if st.button("⚙️", key="settings_button"):
-                # Toggle admin panel visibility and reset admin access if it is hidden
-                st.session_state.show_admin_panel = not st.session_state.show_admin_panel
-                st.session_state.admin_access_granted = False
-    st.markdown("</div>", unsafe_allow_html=True)
+            button_container = st.container()
+            with button_container:
+                if st.session_state.get_together_started:
+                    st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings"), on_click=lambda: setattr(st.session_state, 'show_admin_panel', not st.session_state.show_admin_panel))
+                else:
+                    st.empty()  # Placeholder to maintain layout
+                
+                # Language toggle button
+                language_toggle = "EN" if st.session_state.language == 'DE' else "DE"
+                st.button(language_toggle, key="language_toggle", help=get_text("Sprache ändern", "Change language"), on_click=toggle_language)
+
+    # Add version number at the bottom right
+    st.markdown(f"<div class='version-number'>v{VERSION}</div>", unsafe_allow_html=True)
+
+    return header_container
+
+# Add this CSS to your existing styles
+st.markdown("""
+<style>
+.version-number {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    font-size: 14px;
+    color: #888888;
+    opacity: 0.7;
+}
+
+/* Style for both buttons to ensure they are the same size */
+.stButton > button {
+    width: 100% !important;
+    height: 38px !important;
+    padding: 0px 10px !important;
+    margin-bottom: 10px !important;
+    font-size: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 def navigate():
     if 'trigger_rerun' in st.session_state:
@@ -791,22 +938,23 @@ def admin_panel():
     Function to display the Admin Panel with PIN prompt.
     Once the correct PIN is entered, it automatically navigates to the Admin Einstellungen page.
     """
-    st.markdown("<div class='sub-header' style='color: #f9c61e;'>Admin Panel</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
 
     # Input for admin PIN
-    entered_pin = st.text_input("Admin PIN eingeben", type="password", key="admin_pin_input")
+    entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
 
     # Check entered PIN against the stored PIN automatically
     if entered_pin == st.session_state.pin:
         st.session_state.admin_access_granted = True
         st.session_state.page = 'admin_settings'
-        st.success("Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.")
+        st.success(get_text("Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.", 
+                            "Admin access granted. You will be redirected to the settings."))
         st.rerun()
     elif entered_pin and entered_pin != st.session_state.pin:
-        st.error("Falscher Admin PIN.")
+        st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
 
     # Show Zurück button
-    if st.button("Zurück", key="back_from_admin_panel"):
+    if st.button(get_text("Zurück", "Back"), key="back_from_admin_panel"):
         st.session_state.page = 'select_company'
         st.session_state.show_admin_panel = False
         st.session_state.admin_access_granted = False
@@ -821,6 +969,94 @@ def confirm_end_get_together():
             st.session_state.confirmation_needed = False
         elif confirmation_pin:
             st.error("Falscher PIN. Bitte erneut eingeben.")
+
+def auto_save_attendance():
+    """
+    Automatically saves the current attendance list to a file.
+    This file is overwritten each time a new attendee is added.
+    The filename now includes the event name.
+    """
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Create a filename with the event name
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        file_name = f"current_attendance_{event_name}.csv"
+        
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        
+        # Save the DataFrame to CSV, overwriting the existing file
+        df.to_csv(file_path, index=False, encoding='utf-8')
+        
+        # No success message is displayed to avoid cluttering the UI
+
+def end_get_together():
+    if st.session_state.attendance_data:
+        # Create a detailed DataFrame
+        attendance_df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Add extra details
+        attendance_df['Event Name'] = st.session_state.custom_event_name
+        attendance_df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        attendance_df['Total Attendees'] = len(attendance_df)
+        
+        # Reorder columns for better readability
+        column_order = ['Event Name', 'Event End Time', 'Total Attendees', 'ID', 'Name', 'Firma', 'Team', 'Zeit']
+        attendance_df = attendance_df.reindex(columns=column_order)
+
+        # Generate file name with event name
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        file_name = f"Anwesenheit_{event_name}_{timestamp}.csv"
+        
+        # Save CSV
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        attendance_df.to_csv(file_path, index=False, encoding='utf-8')
+
+        # Provide download button for the saved CSV
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label="Anwesenheitsliste herunterladen",
+                data=f,
+                file_name=file_name,
+                mime="text/csv"
+            )
+        
+        return True
+    else:
+        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
+        return False
+
+def save_current_attendance():
+    """
+    Manually saves the current attendance list to a new file.
+    This function creates a new file each time it's called, with a timestamp and event name in the filename.
+    """
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        file_name = f"Anwesenheit_{event_name}_Zwischenstand_{timestamp}.csv"
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        df.to_csv(file_path, index=False, encoding='utf-8')
+        st.success(f"Anwesenheitsliste '{file_name}' erfolgreich gespeichert.")
+        
+        # Provide download button for the saved CSV
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label="Anwesenheitsliste herunterladen",
+                data=f,
+                file_name=file_name,
+                mime="text/csv"
+            )
+    else:
+        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")    
             
 def reset_session_state():
     st.session_state.page = 'home'
