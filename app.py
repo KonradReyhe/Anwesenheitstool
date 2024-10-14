@@ -388,7 +388,6 @@ def admin_settings():
     if st.session_state.get_together_started:
         st.markdown("<div class='sub-header'>GetTogether beenden:</div>", unsafe_allow_html=True)
         
-        # Use columns to place the input and button side by side
         col1, col2 = st.columns([3, 1])
         with col1:
             end_pin = st.text_input("PIN eingeben zum Beenden des GetTogethers:", type="password", key="end_pin")
@@ -410,10 +409,7 @@ def admin_settings():
         # Option to delete an attendee
         st.markdown("<div class='sub-header'>Teilnehmer entfernen:</div>", unsafe_allow_html=True)
         
-        # Create a dictionary mapping names to IDs
         name_to_id = {f"{record['Name']} ({record['Firma']})": record['ID'] for record in st.session_state.attendance_data}
-        
-        # Create a list of names for the dropdown
         attendee_names = list(name_to_id.keys())
         
         selected_name = st.selectbox("Wählen Sie einen Teilnehmer zum Entfernen:", 
@@ -435,21 +431,21 @@ def admin_settings():
     else:
         st.info("Noch keine Teilnehmer angemeldet.")
 
-    # Option to change PIN
-    st.markdown("<div class='sub-header'>PIN ändern:</div>", unsafe_allow_html=True)
-    current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
-    new_pin = st.text_input("Neuen PIN eingeben", type="password", key="new_pin")
-    confirm_new_pin = st.text_input("Neuen PIN bestätigen", type="password", key="confirm_new_pin")
+    # PIN change option in an expander
+    with st.expander("PIN ändern"):
+        current_pin = st.text_input("Aktuellen PIN eingeben", type="password", key="current_pin")
+        new_pin = st.text_input("Neuen PIN eingeben", type="password", key="new_pin")
+        confirm_new_pin = st.text_input("Neuen PIN bestätigen", type="password", key="confirm_new_pin")
 
-    if st.button("PIN ändern"):
-        if current_pin == st.session_state.pin:
-            if new_pin == confirm_new_pin:
-                st.session_state.pin = new_pin
-                st.success("PIN wurde erfolgreich geändert!")
+        if st.button("PIN ändern"):
+            if current_pin == st.session_state.pin:
+                if new_pin == confirm_new_pin:
+                    st.session_state.pin = new_pin
+                    st.success("PIN wurde erfolgreich geändert!")
+                else:
+                    st.error("Die neuen PINs stimmen nicht überein.")
             else:
-                st.error("Die neuen PINs stimmen nicht überein.")
-        else:
-            st.error("Der aktuelle PIN ist falsch.")
+                st.error("Der aktuelle PIN ist falsch.")
 
     # Show Zurück button in admin settings
     if st.button("Zurück", key="admin_settings_back"):
