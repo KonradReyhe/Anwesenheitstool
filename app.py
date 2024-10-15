@@ -9,6 +9,7 @@ import uuid
 import time
 from math import ceil
 import base64
+from streamlit_autorefresh import st_autorefresh
 
 VERSION = "1.0.0"
 
@@ -70,6 +71,14 @@ st.markdown(
         border: 2px solid #0095be;
         background-color: #f9f9f9;
         color: #000000;
+    }
+    .event-name {
+        color: #f9c61e; /* Yellow color */
+        font-size: 28px;
+        font-weight: bold;
+        text-align: center;
+        margin-top: 10px;
+        margin-bottom: 20px;
     }
     /* Company logo styles */
     .company-container {
@@ -175,6 +184,10 @@ def initialize_session_state():
         st.session_state.custom_message = ''
     if 'language' not in st.session_state:
         st.session_state.language = 'DE'    
+    if 'employee_just_added' not in st.session_state:
+        st.session_state.employee_just_added = False
+    if 'countdown_start_time' not in st.session_state:
+        st.session_state.countdown_start_time = None    
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -212,28 +225,6 @@ def select_employee_callback(employee):
     
     # Automatically save the updated attendance list
     auto_save_attendance()
-    
-    # Success message and countdown
-    success_message = st.empty()
-    countdown = st.empty()
-    
-    success_message.success(f"Anwesenheit von {employee} erfolgreich erfasst!")
-    
-    # 10-second countdown
-    for i in range(10, 0, -1):
-        countdown.info(f"Zurück zur Firmenauswahl in {i} Sekunden...")
-        time.sleep(1)
-    
-    # Clear messages
-    success_message.empty()
-    countdown.empty()
-    
-    # Reset states and return to company selection
-    st.session_state.page = 'select_company'
-    st.session_state.selected_company = None
-    st.session_state.selected_team = None
-    st.session_state.selected_employee = None
-    st.rerun()
 
 def save_attendance():
     if st.session_state.attendance_data:
@@ -316,15 +307,6 @@ def go_back_to_company():
     st.session_state.confirmation_needed = False  # Reset confirmation state
     trigger_rerun()  # Trigger rerun to refresh the UI
 
-def close_admin_panel():
-    """
-    Resets session state related to the admin panel and navigates back to the company selection.
-    """
-    st.session_state.show_admin_panel = False
-    st.session_state.admin_access_granted = False
-    st.session_state.page = 'select_company'
-    trigger_rerun()  # Trigger a rerun after closing the panel
-
 def show_admin_panel():
     # Ensure admin panel is visible
     if st.session_state.show_admin_panel:
@@ -361,68 +343,11 @@ def go_back_to_team_from_employee():
     st.session_state.show_admin_panel = False  # Close admin panel if open
 # Callback function zum Löschen eines Anwesenheitseintrags
 
-def end_get_together():
-    if st.session_state.attendance_data:
-        # Create a detailed DataFrame
-        attendance_df = pd.DataFrame(st.session_state.attendance_data)
-        
-        # Add extra details
-        attendance_df['Event Name'] = st.session_state.custom_event_name
-        attendance_df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        attendance_df['Total Attendees'] = len(attendance_df)
-        
-        # Reorder columns for better readability
-        column_order = ['Event Name', 'Event End Time', 'Total Attendees', 'ID', 'Name', 'Firma', 'Team', 'Zeit']
-        attendance_df = attendance_df.reindex(columns=column_order)
-
-        # Generate file name
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        event_name = st.session_state.custom_event_name.replace(" ", "_")
-        file_name = f"Anwesenheit_{event_name}_{timestamp}.csv"
-        
-        # Save CSV
-        local_data_dir = "data"
-        os.makedirs(local_data_dir, exist_ok=True)
-        file_path = os.path.join(local_data_dir, file_name)
-        attendance_df.to_csv(file_path, index=False, encoding='utf-8')
-
-        # Provide download button for the saved CSV
-        with open(file_path, "rb") as f:
-            st.download_button(
-                label="Anwesenheitsliste herunterladen",
-                data=f,
-                file_name=file_name,
-                mime="text/csv"
-            )
-        
-        return True
-    else:
-        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
-        return False
-
-# Update the CSS to include styling for the custom event name
-st.markdown(
-    """
-    <style>
-    /* ... (previous styles) ... */
-    .event-name {
-        color: #f9c61e;
-        font-size: 28px;
-        font-weight: bold;
-        text-align: center;
-        margin-top: 10px;
-        margin-bottom: 20px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 def admin_settings():
     """
     Function to display the Admin Einstellungen with attendance management, 
     PIN change option, event name change, automatic end time adjustment,
-    and custom message setting.
+    custom message setting, and end GetTogether option.
     """
     # Styled and centered title
     st.markdown(
@@ -459,6 +384,9 @@ def admin_settings():
         st.session_state.custom_event_name = new_event_name
         st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
 
+        # Display the updated event name in yellow
+        st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
+
     # Automatic End Time Adjustment
     st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende anpassen:', 'Adjust Automatic End Time:')}</div>", unsafe_allow_html=True)
     new_end_time = st.time_input(
@@ -477,24 +405,6 @@ def admin_settings():
         else:
             st.session_state.end_time = None
             st.success(get_text("Automatisches Ende wurde entfernt.", "Automatic end time has been removed."))
-
-    # Option to end GetTogether
-    if st.session_state.get_together_started:
-        st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
-        with col2:
-            if st.button(get_text("GetTogether beenden", "End GetTogether")):
-                if end_pin == st.session_state.pin:
-                    if end_get_together():
-                        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
-                                            "GetTogether has been ended and the attendance list has been saved."))
-                        st.rerun()
-                else:
-                    st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
-                                      "Incorrect PIN. GetTogether could not be ended."))
 
     # Display current attendees
     st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste:', 'Current Attendance List:')}</div>", unsafe_allow_html=True)
@@ -523,8 +433,11 @@ def admin_settings():
 
         # Option to save current attendance list
         st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste speichern:', 'Save Current Attendance List:')}</div>", unsafe_allow_html=True)
-        if st.button(get_text("Anwesenheitsliste speichern", "Save Attendance List")):
-            save_current_attendance()
+        
+        custom_save_name = st.text_input(get_text("Name für die Zwischenspeicherung (optional):", "Name for intermediate save (optional):"))
+        
+        if st.button(get_text("Anwesenheitsliste Zwischenstand speichern", "Save Attendance List Snapshot")):
+            save_current_attendance(custom_save_name)
     else:
         st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
@@ -544,12 +457,40 @@ def admin_settings():
             else:
                 st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
 
+    # Add some space before the End GetTogether option
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    # Option to end GetTogether (moved to the bottom)
+    if st.session_state.get_together_started:
+        st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
+        
+        end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
+        
+        # Use columns to make the button wider
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button(get_text("GetTogether beenden", "End GetTogether"), key="end_gettogether_button", use_container_width=True):
+                if end_pin == st.session_state.pin:
+                    if end_get_together():
+                        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
+                                            "GetTogether has been ended and the attendance list has been saved."))
+                        time.sleep(2)  # Give user time to see the success message
+                        st.session_state.page = 'home'  # Return to home page after ending
+                        st.rerun()
+                else:
+                    st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
+                                      "Incorrect PIN. GetTogether could not be ended."))
+
+    # Add some space before the Zurück button
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # Show Zurück button in admin settings
-    if st.button(get_text("Zurück", "Back"), key="admin_settings_back"):
+    if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
         st.session_state.page = 'select_company'  # Navigate directly to the company selection page
         st.session_state.show_admin_panel = False  # Ensure admin panel is closed
         st.session_state.admin_access_granted = False  # Reset admin access
         st.rerun()  # Trigger rerun to refresh the UI
+
 
 def reset_to_company_selection():
     """
@@ -573,6 +514,7 @@ def close_admin_panel():
     st.session_state.page = 'select_company'
     trigger_rerun()  # Trigger a rerun after closing the panel
 
+
 def delete_attendance_record(record_id):
     """
     Deletes an attendance record based on the record's ID.
@@ -580,31 +522,47 @@ def delete_attendance_record(record_id):
     st.session_state.attendance_data = [record for record in st.session_state.attendance_data if record['ID'] != record_id]
     # Note: Success message is now in the admin_settings function for immediate feedback
 
-def save_current_attendance():
+def save_current_attendance(custom_save_name=None):
     """
     Manually saves the current attendance list to a new file.
-    This function creates a new file each time it's called, with a timestamp in the filename.
+    This function creates a new file each time it's called, with an optional custom name and timestamp.
     """
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Remove the 'ID' column
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"Anwesenheit_Zwischenstand_{timestamp}.csv"
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        
+        if custom_save_name:
+            custom_save_name = custom_save_name.replace(" ", "_")
+            file_name = f"Anwesenheit_{event_name}_{custom_save_name}_{timestamp}.csv"
+        else:
+            file_name = f"Anwesenheit_{event_name}_Zwischenstand_{timestamp}.csv"
+        
         local_data_dir = "data"
         os.makedirs(local_data_dir, exist_ok=True)
         file_path = os.path.join(local_data_dir, file_name)
+        
         df.to_csv(file_path, index=False, encoding='utf-8')
-        st.success(f"Anwesenheitsliste '{file_name}' erfolgreich gespeichert.")
+        st.success(get_text(f"Anwesenheitsliste '{file_name}' erfolgreich gespeichert.",
+                            f"Attendance list '{file_name}' successfully saved."))
         
         # Provide download button for the saved CSV
         with open(file_path, "rb") as f:
             st.download_button(
-                label="Anwesenheitsliste herunterladen",
+                label=get_text("Anwesenheitsliste herunterladen", "Download Attendance List"),
                 data=f,
                 file_name=file_name,
                 mime="text/csv"
             )
     else:
-        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
+        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern vorhanden.",
+                            "No attendance data available to save."))
+
 
 
 def show_options_wheel():
@@ -749,85 +707,179 @@ def select_team():
     display_header()
     st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
-    if not os.path.exists(file_path):
-        st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
-                          f"The file '{file_path}' was not found. Please check the path and filename."))
-        return
-    try:
-        df = pd.read_csv(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']
-        teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
-    except Exception as e:
-        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
-                          f"Error reading the CSV file: {e}"))
-        return
-    if len(teams) == 0:
-        st.warning(get_text("Keine Teams für die ausgewählte Firma gefunden.",
-                            "No teams found for the selected company."))
-        return
+    if st.session_state.show_admin_panel:
+        admin_panel()
+    
+    if not st.session_state.admin_access_granted:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
+        if not os.path.exists(file_path):
+            st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                              f"The file '{file_path}' was not found. Please check the path and filename."))
+            return
+        try:
+            df = pd.read_csv(file_path)
+            df.columns = ['Firma', 'Team', 'Mitarbeiter']
+            teams = df[df["Firma"] == st.session_state.selected_company]["Team"].unique()
+        except Exception as e:
+            st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                              f"Error reading the CSV file: {e}"))
+            return
+        if len(teams) == 0:
+            st.warning(get_text("Keine Teams für die ausgewählte Firma gefunden.",
+                                "No teams found for the selected company."))
+            return
 
-    st.markdown(f"<div class='sub-header'>{get_text('Team auswählen:', 'Select a team:')}</div>", unsafe_allow_html=True)
-    
-    # Calculate the number of columns based on the number of teams
-    num_cols = min(3, len(teams))  # Maximum of 3 columns
-    num_rows = ceil(len(teams) / num_cols)
-    
-    # Create a centered container for the buttons
-    container = st.container()
-    with container:
-        for row in range(num_rows):
-            cols = st.columns(num_cols)
-            for col in range(num_cols):
-                idx = row * num_cols + col
-                if idx < len(teams):
-                    with cols[col]:
-                        st.button(teams[idx], key=f"team_{teams[idx]}", on_click=select_team_callback, args=(teams[idx],), use_container_width=True)
-    
-    # Zurück Button
-    st.button(get_text("Zurück", "Back"), on_click=go_back_to_company)
+        st.markdown(f"<div class='sub-header'>{get_text('Team auswählen:', 'Select a team:')}</div>", unsafe_allow_html=True)
+        
+        # Calculate the number of columns based on the number of teams
+        num_cols = min(3, len(teams))  # Maximum of 3 columns
+        num_rows = ceil(len(teams) / num_cols)
+        
+        # Create a centered container for the buttons
+        container = st.container()
+        with container:
+            for row in range(num_rows):
+                cols = st.columns(num_cols)
+                for col in range(num_cols):
+                    idx = row * num_cols + col
+                    if idx < len(teams):
+                        with cols[col]:
+                            st.button(teams[idx], key=f"team_{teams[idx]}", on_click=select_team_callback, args=(teams[idx],), use_container_width=True)
+        
+        # Zurück Button
+        st.button(get_text("Zurück", "Back"), on_click=go_back_to_company)
 
 def select_employee():
     display_header()
-    st.markdown(f"<div class='important-text'>Team: {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
-    if not os.path.exists(file_path):
-        st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
-        return
-    try:
-        df = pd.read_csv(file_path)
-        df.columns = ['Firma', 'Team', 'Mitarbeiter']
-        employees = df[(df["Firma"] == st.session_state.selected_company) & 
-                       (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
-    except Exception as e:
-        st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
-        return
-    if len(employees) == 0:
-        st.warning("Keine Mitarbeiter für das ausgewählte Team gefunden.")
-        return
+    if st.session_state.show_admin_panel:
+        admin_panel()
+    
+    if not st.session_state.admin_access_granted:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
+        if not os.path.exists(file_path):
+            st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
+            return
+        try:
+            df = pd.read_csv(file_path)
+            df.columns = ['Firma', 'Team', 'Mitarbeiter']
+            employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                           (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+        except Exception as e:
+            st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
+            return
+        if len(employees) == 0:
+            st.warning("Keine Mitarbeiter für das ausgewählte Team gefunden.")
+            return
 
-    st.markdown("<div class='sub-header'>Mitarbeiter auswählen:</div>", unsafe_allow_html=True)
-    
-    # Calculate the number of columns based on the number of employees
-    num_cols = min(3, len(employees))  # Maximum of 3 columns
-    num_rows = ceil(len(employees) / num_cols)
-    
-    # Create a centered container for the buttons
-    container = st.container()
-    with container:
-        for row in range(num_rows):
-            cols = st.columns(num_cols)
-            for col in range(num_cols):
-                idx = row * num_cols + col
-                if idx < len(employees):
-                    with cols[col]:
-                        st.button(employees[idx], key=f"employee_{employees[idx]}", on_click=select_employee_callback, args=(employees[idx],), use_container_width=True)
-    
-    # Zurück Button
-    st.button("Zurück", on_click=go_back_to_team_from_employee)
+        st.markdown("<div class='sub-header'>{}</div>".format(get_text("Mitarbeiter auswählen:", "Select employee:")), unsafe_allow_html=True)
+        
+        # Initialize session state variables
+        if 'added_employees' not in st.session_state:
+            st.session_state.added_employees = []
+        if 'timer_active' not in st.session_state:
+            st.session_state.timer_active = False
+        if 'countdown_start_time' not in st.session_state:
+            st.session_state.countdown_start_time = None
+        if 'current_company_team' not in st.session_state:
+            st.session_state.current_company_team = None
+
+        # Check if company or team has changed
+        current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
+        if st.session_state.current_company_team != current_company_team:
+            reset_timer_state()
+            st.session_state.current_company_team = current_company_team
+
+        # Custom CSS for the buttons
+        st.markdown("""
+            <style>
+            .stButton > button {
+                width: 100%;
+            }
+            .employee-added {
+                background-color: #ffcccb !important;
+                color: #000000 !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # Calculate the number of columns based on the number of employees
+        num_cols = min(3, len(employees))  # Maximum of 3 columns
+        num_rows = ceil(len(employees) / num_cols)
+        
+        # Create a centered container for the buttons
+        container = st.container()
+        with container:
+            for row in range(num_rows):
+                cols = st.columns(num_cols)
+                for col in range(num_cols):
+                    idx = row * num_cols + col
+                    if idx < len(employees):
+                        with cols[col]:
+                            employee = employees[idx]
+                            # Check if employee is already added
+                            is_added = employee in st.session_state.added_employees
+                            button_key = f"employee_{employee}"
+                            
+                            if st.button(employee, key=button_key, use_container_width=True, 
+                                         disabled=is_added):
+                                select_employee_callback(employee)
+                                if employee not in st.session_state.added_employees:
+                                    st.session_state.added_employees.append(employee)
+                                st.session_state.timer_active = True
+                                st.session_state.countdown_start_time = time.time()
+                                st.rerun()  # Refresh the app
+                            
+                            # Apply custom style to button if already selected
+                            if is_added:
+                                st.markdown(f"""
+                                    <style>
+                                    div.stButton > button#{button_key} {{
+                                        background-color: #ffcccb !important;
+                                        color: #000000 !important;
+                                        cursor: not-allowed !important;
+                                    }}
+                                    </style>
+                                """, unsafe_allow_html=True)
+        
+        # Check if timer is active
+        if st.session_state.timer_active and st.session_state.countdown_start_time:
+            # Calculate remaining time
+            elapsed_time = time.time() - st.session_state.countdown_start_time
+            remaining_time = max(0, 10 - int(elapsed_time))
+            
+            # Display countdown
+            st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
+            
+            # If the countdown is finished, reset and go back to company selection
+            if remaining_time == 0:
+                reset_timer_state()
+                st.session_state.page = 'select_company'
+                st.session_state.selected_company = None
+                st.session_state.selected_team = None
+                st.session_state.selected_employee = None
+                st.rerun()
+        
+        # Automatically refresh the app every second to update the countdown
+        if st.session_state.timer_active:
+            st_autorefresh(interval=1000, key="timer_autorefresh")
+
+        # Zurück Button
+        if st.button(get_text("Zurück", "Back"), key="back_button"):
+            reset_timer_state()
+            go_back_to_team_from_employee()
+            st.rerun()  # Force an immediate rerun
+
+
+def reset_timer_state():
+    st.session_state.timer_active = False
+    st.session_state.countdown_start_time = None
+    st.session_state.current_company_team = None           
+
 
 def display_header():
     if 'language' not in st.session_state:
@@ -863,7 +915,9 @@ def display_header():
             button_container = st.container()
             with button_container:
                 if st.session_state.get_together_started:
-                    st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings"), on_click=lambda: setattr(st.session_state, 'show_admin_panel', not st.session_state.show_admin_panel))
+                    if st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings")):
+                        st.session_state.show_admin_panel = not st.session_state.show_admin_panel
+                        st.rerun()
                 else:
                     st.empty()  # Placeholder to maintain layout
                 
@@ -919,8 +973,6 @@ def navigate():
         select_team()
     elif st.session_state.page == 'select_employee':
         select_employee()
-    elif st.session_state.page == 'admin_panel':
-        admin_panel()
     elif st.session_state.page == 'admin_settings':
         admin_settings()
 
@@ -934,10 +986,6 @@ def admin_panel_timeout():
             st.session_state.page = 'select_company'
 
 def admin_panel():
-    """
-    Function to display the Admin Panel with PIN prompt.
-    Once the correct PIN is entered, it automatically navigates to the Admin Einstellungen page.
-    """
     st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
 
     # Input for admin PIN
@@ -974,10 +1022,14 @@ def auto_save_attendance():
     """
     Automatically saves the current attendance list to a file.
     This file is overwritten each time a new attendee is added.
-    The filename now includes the event name.
+    The filename includes the custom event name if it was set.
     """
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Remove the 'ID' column for the CSV
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
         
         # Create a filename with the event name
         event_name = st.session_state.custom_event_name.replace(" ", "_")
@@ -989,38 +1041,37 @@ def auto_save_attendance():
         
         # Save the DataFrame to CSV, overwriting the existing file
         df.to_csv(file_path, index=False, encoding='utf-8')
-        
-        # No success message is displayed to avoid cluttering the UI
 
 def end_get_together():
     if st.session_state.attendance_data:
-        # Create a detailed DataFrame
-        attendance_df = pd.DataFrame(st.session_state.attendance_data)
-        
-        # Add extra details
-        attendance_df['Event Name'] = st.session_state.custom_event_name
-        attendance_df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        attendance_df['Total Attendees'] = len(attendance_df)
-        
-        # Reorder columns for better readability
-        column_order = ['Event Name', 'Event End Time', 'Total Attendees', 'ID', 'Name', 'Firma', 'Team', 'Zeit']
-        attendance_df = attendance_df.reindex(columns=column_order)
-
-        # Generate file name with event name
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         event_name = st.session_state.custom_event_name.replace(" ", "_")
-        file_name = f"Anwesenheit_{event_name}_{timestamp}.csv"
-        
-        # Save CSV
         local_data_dir = "data"
         os.makedirs(local_data_dir, exist_ok=True)
+        
+        # Try loading the auto-saved file if it exists
+        auto_save_file = f"current_attendance_{event_name}.csv"
+        auto_save_path = os.path.join(local_data_dir, auto_save_file)
+        
+        if os.path.exists(auto_save_path):
+            df = pd.read_csv(auto_save_path)
+        else:
+            df = pd.DataFrame(st.session_state.attendance_data)
+            if 'ID' in df.columns:
+                df = df.drop('ID', axis=1)
+        
+        # Add extra details and save final file
+        df['Event Name'] = st.session_state.custom_event_name
+        df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        df['Total Attendees'] = len(df)
+        
+        file_name = f"Anwesenheit_{event_name}_Final_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         file_path = os.path.join(local_data_dir, file_name)
-        attendance_df.to_csv(file_path, index=False, encoding='utf-8')
-
-        # Provide download button for the saved CSV
+        df.to_csv(file_path, index=False, encoding='utf-8')
+        
+        # Provide download button for the final CSV
         with open(file_path, "rb") as f:
             st.download_button(
-                label="Anwesenheitsliste herunterladen",
+                label="Finale Anwesenheitsliste herunterladen",
                 data=f,
                 file_name=file_name,
                 mime="text/csv"
@@ -1031,34 +1082,11 @@ def end_get_together():
         st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
         return False
 
-def save_current_attendance():
-    """
-    Manually saves the current attendance list to a new file.
-    This function creates a new file each time it's called, with a timestamp and event name in the filename.
-    """
-    if st.session_state.attendance_data:
-        df = pd.DataFrame(st.session_state.attendance_data)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        event_name = st.session_state.custom_event_name.replace(" ", "_")
-        file_name = f"Anwesenheit_{event_name}_Zwischenstand_{timestamp}.csv"
-        local_data_dir = "data"
-        os.makedirs(local_data_dir, exist_ok=True)
-        file_path = os.path.join(local_data_dir, file_name)
-        df.to_csv(file_path, index=False, encoding='utf-8')
-        st.success(f"Anwesenheitsliste '{file_name}' erfolgreich gespeichert.")
-        
-        # Provide download button for the saved CSV
-        with open(file_path, "rb") as f:
-            st.download_button(
-                label="Anwesenheitsliste herunterladen",
-                data=f,
-                file_name=file_name,
-                mime="text/csv"
-            )
-    else:
-        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")    
-            
+      
 def reset_session_state():
+    """
+    Resets all session states related to the GetTogether event and returns to the home page.
+    """
     st.session_state.page = 'home'
     st.session_state.get_together_started = False
     st.session_state.selected_company = None
@@ -1068,9 +1096,11 @@ def reset_session_state():
     st.session_state.pin = None
     st.session_state.admin_access_granted = False
     st.session_state.show_admin_panel = False
-    # Reset custom event name and end time
     st.session_state.custom_event_name = "GetTogether"
     st.session_state.end_time = None
+    st.session_state.custom_message = ''
+    st.session_state.confirmation_needed = False
+
 
 
 
