@@ -10,6 +10,13 @@ import time
 from math import ceil
 import base64
 from streamlit_autorefresh import st_autorefresh
+import threading
+import time
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email import encoders
 
 VERSION = "1.0.0"
 
@@ -178,16 +185,18 @@ def initialize_session_state():
         st.session_state.show_admin_settings = False
     if 'custom_event_name' not in st.session_state:
         st.session_state.custom_event_name = "GetTogether"
-    if 'end_time' not in st.session_state:
-        st.session_state.end_time = None
     if 'custom_message' not in st.session_state:
         st.session_state.custom_message = ''
     if 'language' not in st.session_state:
         st.session_state.language = 'DE'    
     if 'employee_just_added' not in st.session_state:
         st.session_state.employee_just_added = False
-    if 'countdown_start_time' not in st.session_state:
-        st.session_state.countdown_start_time = None    
+    if 'end_time' not in st.session_state:
+        st.session_state.end_time = None
+    if 'end_thread' not in st.session_state:
+        st.session_state.end_thread = None
+    if 'cancel_end' not in st.session_state:
+        st.session_state.cancel_end = False
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -250,7 +259,7 @@ def save_attendance():
     else:
         st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
 
-def start_get_together(pin1, pin2, custom_event_name, end_time):
+def start_get_together(pin1, pin2, custom_event_name):
     if pin1 and pin2 and pin1 == pin2:
         st.session_state.pin = pin1
         st.session_state.get_together_started = True
@@ -258,22 +267,13 @@ def start_get_together(pin1, pin2, custom_event_name, end_time):
         # Set custom event name
         st.session_state.custom_event_name = custom_event_name if custom_event_name else "GetTogether"
         
-        # Set end time if provided
-        if end_time:
-            end_datetime = datetime.combine(datetime.today(), end_time)
-            st.session_state.end_time = end_datetime
-            # Start a background thread to check for event end time
-            threading.Thread(target=check_event_end_time, daemon=True).start()
-        else:
-            st.session_state.end_time = None
-        
-        st.success("GetTogether gestartet!")
+        st.success(get_text("GetTogether gestartet!", "GetTogether started!"))
         return True
     else:
         if not pin1 or not pin2:
-            st.error("Bitte beide PIN-Felder ausfüllen.")
+            st.error(get_text("Bitte beide PIN-Felder ausfüllen.", "Please fill in both PIN fields."))
         elif pin1 != pin2:
-            st.error("Die eingegebenen PINs stimmen nicht überein.")
+            st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
         return False
 
 def submit_guest():
@@ -347,13 +347,48 @@ def go_back_to_team_from_employee():
     st.session_state.show_admin_panel = False  # Close admin panel if open
 # Callback function zum Löschen eines Anwesenheitseintrags
 
+def display_countdown_timer():
+    if st.session_state.end_time and st.session_state.get_together_started:
+        time_remaining = st.session_state.end_time - datetime.now()
+        if time_remaining.total_seconds() > 0:
+            days, remainder = divmod(time_remaining.total_seconds(), 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            countdown_text = get_text(
+                f"Verbleibende Zeit: {int(days)} T, {int(hours)} Std, {int(minutes)} Min",
+                f"Time remaining: {int(days)}d, {int(hours)}h, {int(minutes)}m"
+            )
+            
+            st.markdown(
+                f"""
+                <div style="
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    background-color: rgba(249, 198, 30, 0.1);
+                    color: #888888;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    z-index: 1000;
+                ">
+                    {countdown_text}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.warning(get_text("Das Event ist beendet!", "The event has ended!"))
+            end_get_together()
+            st.session_state.get_together_started = False
+            st.session_state.page = 'home'
+            st.experimental_rerun()
+
 def admin_settings():
     """
-    Function to display the Admin Einstellungen with attendance management, 
-    PIN change option, event name change, automatic end time adjustment,
-    custom message setting, and end GetTogether option.
+    Function to display the Admin Einstellungen with improved organization and automatic CSV sending feature.
     """
-    # Styled and centered title
     st.markdown(
         f"""
         <div style="
@@ -369,7 +404,15 @@ def admin_settings():
         unsafe_allow_html=True
     )
 
-    # Custom Message Setting
+    # 1. Event Name Change
+    st.markdown(f"<div class='sub-header'>{get_text('Event Name ändern:', 'Change Event Name:')}</div>", unsafe_allow_html=True)
+    new_event_name = st.text_input(get_text("Neuer Event Name:", "New Event Name:"), value=st.session_state.custom_event_name)
+    if st.button(get_text("Event Name aktualisieren", "Update Event Name")):
+        st.session_state.custom_event_name = new_event_name
+        st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
+        st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
+
+    # 2. Custom Message Setting
     st.markdown(f"<div class='sub-header'>{get_text('Benutzerdefinierte Nachricht:', 'Custom Message:')}</div>", unsafe_allow_html=True)
     custom_message = st.text_area(
         get_text("Nachricht über der Firmenauswahl eingeben:", "Enter message to display above company selection:"),
@@ -381,37 +424,52 @@ def admin_settings():
         st.session_state.custom_message = custom_message
         st.success(get_text("Benutzerdefinierte Nachricht wurde aktualisiert.", "Custom message has been updated."))
 
-    # Event Name Change
-    st.markdown(f"<div class='sub-header'>{get_text('Event Name ändern:', 'Change Event Name:')}</div>", unsafe_allow_html=True)
-    new_event_name = st.text_input(get_text("Neuer Event Name:", "New Event Name:"), value=st.session_state.custom_event_name)
-    if st.button(get_text("Event Name aktualisieren", "Update Event Name")):
-        st.session_state.custom_event_name = new_event_name
-        st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
+    # 3. Automatic CSV Sending Feature
+    st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende und CSV-Versand:', 'Automatic End and CSV Sending:')}</div>", unsafe_allow_html=True)
+    
+    hours = st.number_input(get_text("In wie vielen Stunden soll das Event enden und die CSV versendet werden?", 
+                                     "In how many hours should the event end and send the CSV?"), 
+                            min_value=1, value=5, step=1)
+    
+    if st.button(get_text("Automatisches Ende setzen", "Set Automatic End")):
+        end_time = datetime.now() + timedelta(hours=hours)
+        st.session_state.end_time = end_time
+        schedule_event_end(end_time)
+        st.success(get_text(f"Event wird in {hours} Stunden automatisch beendet und CSV versendet.", 
+                            f"Event will automatically end and send CSV in {hours} hours."))
 
-        # Display the updated event name in yellow
-        st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
+    # Display current end time if set
+    if 'end_time' in st.session_state and st.session_state.end_time:
+        st.info(get_text(f"Aktuelles geplantes Ende: {st.session_state.end_time.strftime('%d.%m.%Y %H:%M')}", 
+                         f"Current scheduled end: {st.session_state.end_time.strftime('%Y-%m-%d %H:%M')}"))
 
-    # Automatic End Time Adjustment
-    st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende anpassen:', 'Adjust Automatic End Time:')}</div>", unsafe_allow_html=True)
-    new_end_time = st.time_input(
-        get_text("Neues automatisches Ende:", "New automatic end time:"),
-        value=st.session_state.end_time.time() if st.session_state.end_time else None
-    )
-    if st.button(get_text("Endzeit aktualisieren", "Update End Time")):
-        if new_end_time:
-            new_end_datetime = datetime.combine(datetime.today(), new_end_time)
-            if new_end_datetime > datetime.now():
-                st.session_state.end_time = new_end_datetime
-                st.success(get_text(f"Automatisches Ende wurde auf {new_end_time.strftime('%H:%M')} Uhr gesetzt.",
-                                    f"Automatic end time has been set to {new_end_time.strftime('%H:%M')}."))
-            else:
-                st.error(get_text("Die neue Endzeit muss in der Zukunft liegen.", "The new end time must be in the future."))
-        else:
+    # Option to cancel scheduled end
+    if 'end_time' in st.session_state and st.session_state.end_time:
+        if st.button(get_text("Geplantes Ende abbrechen", "Cancel Scheduled End")):
             st.session_state.end_time = None
-            st.success(get_text("Automatisches Ende wurde entfernt.", "Automatic end time has been removed."))
+            cancel_scheduled_end()
+            st.success(get_text("Geplantes Ende wurde abgebrochen.", "Scheduled end has been cancelled."))
 
-    # Display current attendees
-    st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste:', 'Current Attendance List:')}</div>", unsafe_allow_html=True)
+    # 4. PIN Change
+    st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
+    current_pin = st.text_input(get_text("Aktuellen PIN eingeben", "Enter current PIN"), type="password", key="current_pin")
+    new_pin = st.text_input(get_text("Neuen PIN eingeben", "Enter new PIN"), type="password", key="new_pin")
+    confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm new PIN"), type="password", key="confirm_new_pin")
+
+    if st.button(get_text("PIN ändern", "Change PIN")):
+        if current_pin == st.session_state.pin:
+            if new_pin == confirm_new_pin:
+                st.session_state.pin = new_pin
+                st.success(get_text("PIN wurde erfolgreich geändert!", "PIN has been successfully changed!"))
+            else:
+                st.error(get_text("Die neuen PINs stimmen nicht überein.", "The new PINs do not match."))
+        else:
+            st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
+
+    # 5. Attendance Management
+    st.markdown(f"<div class='sub-header'>{get_text('Anwesenheitsverwaltung:', 'Attendance Management:')}</div>", unsafe_allow_html=True)
+    st.info(get_text("Hinweis: Eine CSV-Datei wird automatisch nach jeder neuen Anmeldung gespeichert.",
+                     "Note: A CSV file is automatically saved after each new attendee registration."))
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
         st.dataframe(df[['Name', 'Firma', 'Team', 'Zeit']])
@@ -445,56 +503,33 @@ def admin_settings():
     else:
         st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
-    # PIN change option in an expander
-    with st.expander(get_text("PIN ändern", "Change PIN")):
-        current_pin = st.text_input(get_text("Aktuellen PIN eingeben", "Enter current PIN"), type="password", key="current_pin")
-        new_pin = st.text_input(get_text("Neuen PIN eingeben", "Enter new PIN"), type="password", key="new_pin")
-        confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm new PIN"), type="password", key="confirm_new_pin")
-
-        if st.button(get_text("PIN ändern", "Change PIN")):
-            if current_pin == st.session_state.pin:
-                if new_pin == confirm_new_pin:
-                    st.session_state.pin = new_pin
-                    st.success(get_text("PIN wurde erfolgreich geändert!", "PIN has been successfully changed!"))
-                else:
-                    st.error(get_text("Die neuen PINs stimmen nicht überein.", "The new PINs do not match."))
-            else:
-                st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
-
-    # Add some space before the End GetTogether option
+    # 6. End GetTogether Option
     st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden und CSV an die Buchhaltung schicken:', 'End GetTogether and Send CSV to Accounting:')}</div>", unsafe_allow_html=True)
+    
+    end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button(get_text("GetTogether beenden", "End GetTogether"), key="end_gettogether_button", use_container_width=True):
+            if end_pin == st.session_state.pin:
+                if end_get_together():
+                    st.success(get_text("GetTogether wurde beendet. Die Anwesenheitsliste wurde gespeichert und an die Buchhaltung gesendet.",
+                                        "GetTogether has been ended. The attendance list has been saved and sent to accounting."))
+                    time.sleep(2)
+                    st.session_state.page = 'home'
+                    st.rerun()
+            else:
+                st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
+                                  "Incorrect PIN. GetTogether could not be ended."))
 
-    # Option to end GetTogether (moved to the bottom)
-    if st.session_state.get_together_started:
-        st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
-        
-        end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
-        
-        # Use columns to make the button wider
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button(get_text("GetTogether beenden", "End GetTogether"), key="end_gettogether_button", use_container_width=True):
-                if end_pin == st.session_state.pin:
-                    if end_get_together():
-                        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
-                                            "GetTogether has been ended and the attendance list has been saved."))
-                        time.sleep(2)  # Give user time to see the success message
-                        st.session_state.page = 'home'  # Return to home page after ending
-                        st.rerun()
-                else:
-                    st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
-                                      "Incorrect PIN. GetTogether could not be ended."))
-
-    # Add some space before the Zurück button
+    # Back Button
     st.markdown("<br>", unsafe_allow_html=True)
-
-    # Show Zurück button in admin settings
     if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
-        st.session_state.page = 'select_company'  # Navigate directly to the company selection page
-        st.session_state.show_admin_panel = False  # Ensure admin panel is closed
-        st.session_state.admin_access_granted = False  # Reset admin access
-        st.rerun()  # Trigger rerun to refresh the UI
-
+        st.session_state.page = 'select_company'
+        st.session_state.show_admin_panel = False
+        st.session_state.admin_access_granted = False
+        st.rerun()
 
 def reset_to_company_selection():
     """
@@ -608,25 +643,26 @@ def home():
     
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
-    end_time = st.time_input(get_text("Automatisches Ende des Events (optional):", "Automatic end time of the event (optional):"), value=None, key="end_time_input")
-    
     if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
-        if start_get_together(pin1, pin2, custom_event_name, end_time):
+        if start_get_together(pin1, pin2, custom_event_name):
             st.session_state.page = 'select_company'
             st.rerun()
-
-# Make sure to call initialize_session_state() at the beginning of your main script
 initialize_session_state()
 
 def check_event_end_time():
-    while True:
+    while st.session_state.get_together_started:
         if datetime.now() >= st.session_state.end_time:
             end_get_together()
-            break
-        time.sleep(60)  # Check every minute           
+            st.session_state.get_together_started = False
+            st.session_state.page = 'home'
+            st.experimental_rerun()
+        time.sleep(60)  # Check every minute     
 
 def select_company():
     display_header()
+    
+    # Display countdown timer
+    display_countdown_timer()
     
     if st.session_state.get('custom_message'):
         st.markdown(
@@ -791,16 +827,25 @@ def select_employee():
             st.session_state.countdown_start_time = None
         if 'current_company_team' not in st.session_state:
             st.session_state.current_company_team = None
-        if 'employee_just_added' not in st.session_state:
-            st.session_state.employee_just_added = False
+        if 'success_messages' not in st.session_state:
+            st.session_state.success_messages = []
+        if 'last_message_time' not in st.session_state:
+            st.session_state.last_message_time = None
+        if 'all_employees_added_time' not in st.session_state:
+            st.session_state.all_employees_added_time = None
 
         # Check if company or team has changed
         current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
         if st.session_state.current_company_team != current_company_team:
-            reset_timer_state()
+            st.session_state.added_employees = []
             st.session_state.current_company_team = current_company_team
+            st.session_state.timer_active = False
+            st.session_state.countdown_start_time = None
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
+            st.session_state.all_employees_added_time = None
 
-        # Custom CSS for the buttons and success message
+        # Custom CSS for the buttons and messages
         st.markdown("""
             <style>
             .stButton > button {
@@ -810,26 +855,31 @@ def select_employee():
                 background-color: #ffcccb !important;
                 color: #000000 !important;
             }
-            .success-message {
-                background-color: #4CAF50;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                text-align: center;
+            .success-message-container {
                 margin-bottom: 20px;
-                font-size: 18px;
             }
             </style>
         """, unsafe_allow_html=True)
         
-        # Display success message if an employee was just added
-        if st.session_state.employee_just_added:
-            st.markdown(f"""
-                <div class="success-message">
-                    {get_text('Mitarbeiter erfolgreich hinzugefügt!', 'Employee successfully added!')}
-                </div>
-            """, unsafe_allow_html=True)
-            st.session_state.employee_just_added = False  # Reset the flag
+        # Display success messages
+        with st.container():
+            for message in st.session_state.success_messages:
+                st.success(message)
+        
+        # Remove old messages after 5 seconds
+        current_time = time.time()
+        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
+        
+        # Check if all employees have been added and return after 5 seconds
+        if st.session_state.all_employees_added_time:
+            time_since_all_added = current_time - st.session_state.all_employees_added_time
+            if time_since_all_added <= 5:
+                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+            else:
+                return_to_company_selection()
         
         # Calculate the number of columns based on the number of employees
         num_cols = min(3, len(employees))  # Maximum of 3 columns
@@ -856,7 +906,19 @@ def select_employee():
                                     st.session_state.added_employees.append(employee)
                                 st.session_state.timer_active = True
                                 st.session_state.countdown_start_time = time.time()
-                                st.session_state.employee_just_added = True  # Set the flag
+                                
+                                # Add success message
+                                new_message = get_text(
+                                    f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+                                    f'Employee "{employee}" has been added to the attendance list.'
+                                )
+                                st.session_state.success_messages.append(new_message)
+                                st.session_state.last_message_time = time.time()
+                                
+                                # Check if all employees have been added
+                                if set(st.session_state.added_employees) == set(employees):
+                                    st.session_state.all_employees_added_time = time.time()
+                                
                                 st.rerun()  # Refresh the app
                             
                             # Apply custom style to button if already selected
@@ -871,34 +933,38 @@ def select_employee():
                                     </style>
                                 """, unsafe_allow_html=True)
         
-        # Check if timer is active
-        if st.session_state.timer_active and st.session_state.countdown_start_time:
+        # Check if timer is active (only if not all employees have been added)
+        if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
             # Calculate remaining time
             elapsed_time = time.time() - st.session_state.countdown_start_time
-            remaining_time = max(0, 10 - int(elapsed_time))
+            remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
             
             # Display countdown
             st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
             
             # If the countdown is finished, reset and go back to company selection
             if remaining_time == 0:
-                reset_timer_state()
-                st.session_state.page = 'select_company'
-                st.session_state.selected_company = None
-                st.session_state.selected_team = None
-                st.session_state.selected_employee = None
-                st.rerun()
+                return_to_company_selection()
         
-        # Automatically refresh the app every second to update the countdown
-        if st.session_state.timer_active:
-            st_autorefresh(interval=1000, key="timer_autorefresh")
-
+        # Automatically refresh the app every second to update the countdown and messages
+        st_autorefresh(interval=1000, key="autorefresh")
+        
         # Zurück Button
-        if st.button(get_text("Zurück", "Back"), key="back_button"):
-            reset_timer_state()
-            go_back_to_team_from_employee()
-            st.rerun()  # Force an immediate rerun
+        if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
+            return_to_company_selection()
 
+def return_to_company_selection():
+    st.session_state.page = 'select_company'
+    st.session_state.selected_company = None
+    st.session_state.selected_team = None
+    st.session_state.selected_employee = None
+    st.session_state.added_employees = []
+    st.session_state.timer_active = False
+    st.session_state.countdown_start_time = None
+    st.session_state.success_messages = []
+    st.session_state.last_message_time = None
+    st.session_state.all_employees_added_time = None
+    st.rerun()
 
 def reset_timer_state():
     st.session_state.timer_active = False
@@ -910,11 +976,9 @@ def display_header():
     if 'language' not in st.session_state:
         st.session_state.language = 'DE'
 
-    # Create a container for the header
     header_container = st.container()
 
     with header_container:
-        # Title
         title = get_text("GetTogether Anwesenheitstool", "GetTogether Attendance Tool")
         st.markdown(f"<div class='title'>{title}</div>", unsafe_allow_html=True)
         
@@ -937,20 +1001,14 @@ def display_header():
         # Admin settings button and language toggle
         col1, col2 = st.columns([9, 1])
         with col2:
-            button_container = st.container()
-            with button_container:
-                if st.session_state.get_together_started:
-                    if st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings")):
-                        st.session_state.show_admin_panel = not st.session_state.show_admin_panel
-                        st.rerun()
-                else:
-                    st.empty()  # Placeholder to maintain layout
-                
-                # Language toggle button
-                language_toggle = "EN" if st.session_state.language == 'DE' else "DE"
-                st.button(language_toggle, key="language_toggle", help=get_text("Sprache ändern", "Change language"), on_click=toggle_language)
+            if st.session_state.get_together_started:
+                if st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings")):
+                    st.session_state.show_admin_panel = not st.session_state.show_admin_panel
+                    st.rerun()
+            
+            language_toggle = "EN" if st.session_state.language == 'DE' else "DE"
+            st.button(language_toggle, key="language_toggle", help=get_text("Sprache ändern", "Change language"), on_click=toggle_language)
 
-    # Add version number at the bottom right
     st.markdown(f"<div class='version-number'>v{VERSION}</div>", unsafe_allow_html=True)
 
     return header_container
@@ -1013,21 +1071,47 @@ def admin_panel_timeout():
 def admin_panel():
     st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
 
-    # Input for admin PIN
-    entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+    # Create columns for PIN input and Enter button
+    col1, col2 = st.columns([3, 1])
 
-    # Check entered PIN against the stored PIN automatically
-    if entered_pin == st.session_state.pin:
-        st.session_state.admin_access_granted = True
-        st.session_state.page = 'admin_settings'
-        st.success(get_text("Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.", 
-                            "Admin access granted. You will be redirected to the settings."))
-        st.rerun()
-    elif entered_pin and entered_pin != st.session_state.pin:
-        st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+    with col1:
+        entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
 
-    # Show Zurück button
-    if st.button(get_text("Zurück", "Back"), key="back_from_admin_panel"):
+    with col2:
+        enter_button = st.button("Enter", key="admin_pin_enter")
+
+    # Check entered PIN against the stored PIN when Enter button is clicked
+    if enter_button:
+        if entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True
+            st.session_state.page = 'admin_settings'
+            st.success(get_text("Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.", 
+                                "Admin access granted. You will be redirected to the settings."))
+            st.rerun()
+        else:
+            st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+
+    # Display detailed end time information if admin access is granted
+    if st.session_state.admin_access_granted:
+        st.markdown("---")
+        st.markdown(f"<div class='sub-header'>{get_text('Event-Informationen', 'Event Information')}</div>", unsafe_allow_html=True)
+        
+        if st.session_state.end_time:
+            time_remaining = st.session_state.end_time - datetime.now()
+            if time_remaining.total_seconds() > 0:
+                days, remainder = divmod(time_remaining.total_seconds(), 86400)
+                hours, remainder = divmod(remainder, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                
+                st.markdown(f"**{get_text('Geplantes Ende:', 'Scheduled End:')}** {st.session_state.end_time.strftime('%d.%m.%Y %H:%M')}")
+                st.markdown(f"**{get_text('Verbleibende Zeit:', 'Time Remaining:')}** {int(days)} {get_text('Tage', 'days')}, {int(hours)} {get_text('Stunden', 'hours')}, {int(minutes)} {get_text('Minuten', 'minutes')}")
+            else:
+                st.warning(get_text("Das Event ist beendet!", "The event has ended!"))
+        else:
+            st.info(get_text("Kein automatisches Ende festgelegt.", "No automatic end time set."))
+
+    # Show Abbrechen button
+    if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
         st.session_state.page = 'select_company'
         st.session_state.show_admin_panel = False
         st.session_state.admin_access_granted = False
@@ -1042,6 +1126,124 @@ def confirm_end_get_together():
             st.session_state.confirmation_needed = False
         elif confirmation_pin:
             st.error("Falscher PIN. Bitte erneut eingeben.")
+
+def schedule_event_end(end_time):
+    # Cancel any existing scheduled end
+    cancel_scheduled_end()
+    
+    # Schedule new end
+    thread = threading.Thread(target=wait_and_end_event, args=(end_time,))
+    thread.daemon = True
+    thread.start()
+    st.session_state.end_thread = thread
+
+def cancel_scheduled_end():
+    if 'end_thread' in st.session_state and st.session_state.end_thread:
+        # There's no direct way to stop a thread, so we'll use a flag
+        st.session_state.cancel_end = True
+        st.session_state.end_thread = None
+
+def wait_and_end_event(end_time):
+    st.session_state.cancel_end = False
+    while datetime.now() < end_time:
+        time.sleep(60)  # Check every minute
+        if st.session_state.cancel_end:
+            return  # Exit if cancellation is requested
+
+    # If we've reached here, it's time to end the event
+    end_get_together()
+    send_csv_to_accounting()
+    st.session_state.get_together_started = False
+    st.session_state.page = 'home'
+    st.experimental_rerun()
+
+def send_csv_to_accounting():
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_Final_{timestamp}.csv"
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        df.to_csv(file_path, index=False, encoding='utf-8')
+        
+        # Email configuration
+        sender_email = "your_email@example.com"  # Replace with your email
+        receiver_email = "accounting@example.com"  # Replace with accounting email
+        password = "your_email_password"  # Replace with your email password
+
+        # Create the email
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = receiver_email
+        message["Subject"] = f"GetTogether Attendance List - {timestamp}"
+
+        body = "Please find attached the attendance list for the GetTogether event."
+        message.attach(MIMEText(body, "plain"))
+
+        # Attach the CSV file
+        with open(file_path, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename= {file_name}",
+        )
+        message.attach(part)
+
+        # Send the email
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, password)
+                server.sendmail(sender_email, receiver_email, message.as_string())
+            st.success("CSV sent to accounting successfully.")
+        except Exception as e:
+            st.error(f"Failed to send CSV to accounting: {str(e)}")
+
+def end_get_together():
+    if st.session_state.attendance_data:
+        # Save the final CSV
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_{event_name}_Final_{timestamp}.csv"
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        
+        df = pd.DataFrame(st.session_state.attendance_data)
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
+        df['Event Name'] = st.session_state.custom_event_name
+        df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        df['Total Attendees'] = len(df)
+        
+        df.to_csv(file_path, index=False, encoding='utf-8')
+        
+        # Send CSV to accounting via email
+        if send_csv_to_accounting(file_path, file_name):
+            st.success(get_text("Anwesenheitsliste wurde gespeichert und per E-Mail an die Buchhaltung gesendet.",
+                                "Attendance list has been saved and sent via email to accounting."))
+        else:
+            st.warning(get_text("Anwesenheitsliste wurde gespeichert, konnte aber nicht per E-Mail gesendet werden. Bitte manuell senden.",
+                                "Attendance list has been saved but could not be sent via email. Please send manually."))
+        
+        # Provide download button for the final CSV
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label=get_text("Finale Anwesenheitsliste herunterladen", "Download Final Attendance List"),
+                data=f,
+                file_name=file_name,
+                mime="text/csv"
+            )
+        
+        reset_session_state()
+        return True
+    else:
+        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern vorhanden.", 
+                            "No attendance data available to save."))
+        return False
 
 def auto_save_attendance():
     """
