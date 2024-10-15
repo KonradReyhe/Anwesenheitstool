@@ -192,7 +192,11 @@ initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
 def select_company_callback(company):
-    st.session_state.selected_company = company
+    if company in ["Externe Partner", "External Partners"]:
+        st.session_state.selected_company = "Externe Partner"  # Always use the German version for CSV lookup
+    else:
+        st.session_state.selected_company = company
+
     if company in [get_text("Gast", "Guest"), "Gast", "Guest"]:  # Check for both German and English versions
         st.session_state.page = 'guest_info'
     else:
@@ -787,6 +791,8 @@ def select_employee():
             st.session_state.countdown_start_time = None
         if 'current_company_team' not in st.session_state:
             st.session_state.current_company_team = None
+        if 'employee_just_added' not in st.session_state:
+            st.session_state.employee_just_added = False
 
         # Check if company or team has changed
         current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
@@ -794,7 +800,7 @@ def select_employee():
             reset_timer_state()
             st.session_state.current_company_team = current_company_team
 
-        # Custom CSS for the buttons
+        # Custom CSS for the buttons and success message
         st.markdown("""
             <style>
             .stButton > button {
@@ -804,8 +810,26 @@ def select_employee():
                 background-color: #ffcccb !important;
                 color: #000000 !important;
             }
+            .success-message {
+                background-color: #4CAF50;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                text-align: center;
+                margin-bottom: 20px;
+                font-size: 18px;
+            }
             </style>
         """, unsafe_allow_html=True)
+        
+        # Display success message if an employee was just added
+        if st.session_state.employee_just_added:
+            st.markdown(f"""
+                <div class="success-message">
+                    {get_text('Mitarbeiter erfolgreich hinzugefügt!', 'Employee successfully added!')}
+                </div>
+            """, unsafe_allow_html=True)
+            st.session_state.employee_just_added = False  # Reset the flag
         
         # Calculate the number of columns based on the number of employees
         num_cols = min(3, len(employees))  # Maximum of 3 columns
@@ -832,6 +856,7 @@ def select_employee():
                                     st.session_state.added_employees.append(employee)
                                 st.session_state.timer_active = True
                                 st.session_state.countdown_start_time = time.time()
+                                st.session_state.employee_just_added = True  # Set the flag
                                 st.rerun()  # Refresh the app
                             
                             # Apply custom style to button if already selected
