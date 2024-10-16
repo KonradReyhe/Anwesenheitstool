@@ -419,6 +419,7 @@ def admin_settings():
     
     if st.button(get_text("Stammdaten bearbeiten", "Edit Master Data")):
         st.session_state.selected_file = os.path.join(main_dir, selected_csv)
+        st.session_state.previous_page = 'admin_settings'  # Store the previous page
         st.session_state.page = 'update_master_data'
         st.rerun()
 
@@ -642,8 +643,14 @@ def update_master_data():
             st.success(get_text("Eintrag aktualisiert.", "Entry updated."))
             st.rerun()
     
+    # Modify the 'Zurück' button behavior
     if st.button(get_text("Zurück", "Back")):
-        st.session_state.page = 'home'
+        if st.session_state.get_together_started:
+            # If GetTogether is running, go back to admin settings
+            st.session_state.page = 'admin_settings'
+        else:
+            # If GetTogether is not running, go back to home
+            st.session_state.page = 'home'
         st.rerun()
 
 def reset_to_company_selection():
