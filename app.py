@@ -17,6 +17,19 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from streamlit_drawable_canvas import st_canvas
+import os
+import base64
+from io import BytesIO
+from PIL import Image
+import numpy as np
+import zipfile
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from PIL import Image
+import os
+from streamlit.runtime.scriptrunner import RerunException
 
 VERSION = "1.0.0"
 
@@ -207,6 +220,26 @@ def initialize_session_state():
         st.session_state.auto_end_hours = None
     if 'accounting_email' not in st.session_state:
         st.session_state.accounting_email = "accounting@example.com"
+    if 'signatures' not in st.session_state:
+        st.session_state.signatures = {}
+    if 'require_signature' not in st.session_state:
+        st.session_state.require_signature = False
+    if 'success_messages' not in st.session_state:
+        st.session_state.success_messages = []
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = None
+    if 'timer_active' not in st.session_state:
+        st.session_state.timer_active = False
+    if 'countdown_start_time' not in st.session_state:
+        st.session_state.countdown_start_time = None
+    if 'all_employees_added_time' not in st.session_state:
+        st.session_state.all_employees_added_time = None
+    if 'added_employees' not in st.session_state:
+        st.session_state.added_employees = []
+    if 'custom_employee_messages' not in st.session_state:
+        st.session_state.custom_employee_messages = {}
+    if 'show_custom_message' not in st.session_state:
+        st.session_state.show_custom_message = False
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -236,18 +269,59 @@ def get_text(de_text, en_text):
 
 def select_employee_callback(employee):
     st.session_state.selected_employee = employee
-    # Anwesenheitsdaten direkt speichern mit einer eindeutigen ID
-    attendance_record = {
-        'ID': str(uuid.uuid4()),
+    
+    # Create attendee data
+    attendee_data = {
         'Name': employee,
         'Firma': st.session_state.selected_company,
         'Team': st.session_state.selected_team,
-        'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'Event Name': st.session_state.custom_event_name,
     }
-    st.session_state.attendance_data.append(attendance_record)
+
+    if st.session_state.require_signature:
+        attendee_data['Signature'] = st.session_state.signatures.get(employee)
+        pdf_path = save_attendee_record(attendee_data)
+        attendee_data['RecordPath'] = pdf_path
+    
+    st.session_state.attendance_data.append(attendee_data)
     
     # Automatically save the updated attendance list
     auto_save_attendance()
+
+def save_attendee_record(attendee_data):
+    if not st.session_state.require_signature:
+        return  # If signatures are not required, we'll stick with the CSV format
+
+    # Create a directory for attendee records if it doesn't exist
+    os.makedirs('attendee_records', exist_ok=True)
+
+    # Create a PDF for the attendee
+    file_name = f"attendee_records/{attendee_data['Name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    c = canvas.Canvas(file_name, pagesize=letter)
+    width, height = letter
+
+    # Add attendee information to the PDF
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, height - 50, f"Attendee Record: {attendee_data['Name']}")
+    
+    c.setFont("Helvetica", 12)
+    y_position = height - 80
+    for key, value in attendee_data.items():
+        if key != 'Signature':
+            c.drawString(50, y_position, f"{key}: {value}")
+            y_position -= 20
+
+    # Add the signature if available
+    if 'Signature' in attendee_data and attendee_data['Signature']:
+        signature_path = attendee_data['Signature']
+        if os.path.exists(signature_path):
+            img = ImageReader(signature_path)
+            c.drawImage(img, 50, y_position - 100, width=200, height=100, preserveAspectRatio=True)
+            c.drawString(50, y_position - 120, "Signature:")
+
+    c.save()
+    return file_name
 
 def save_attendance():
     if st.session_state.attendance_data:
@@ -395,10 +469,25 @@ def display_countdown_timer():
             st.session_state.page = 'home'
             st.experimental_rerun()
 
+def schedule_event_end(end_time):
+    st.session_state.end_time = end_time
+
+def check_event_end():
+    if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
+        if datetime.now() >= st.session_state.end_time:
+            end_get_together()
+            st.session_state.get_together_started = False
+            st.session_state.page = 'home'
+            st.experimental_rerun()
+
+def cancel_scheduled_end():
+    st.session_state.end_time = None
+    st.session_state.cancel_end = True
+    st.success(get_text("Geplantes Ende wurde abgebrochen.", "Scheduled end has been cancelled."))
+
 def admin_settings():
     """
-    Function to display the Admin Einstellungen with improved organization, automatic CSV sending feature,
-    and Stammdaten editing option.
+    Function to display the Admin Einstellungen with improved organization and logical grouping.
     """
     st.markdown(
         f"""
@@ -415,34 +504,17 @@ def admin_settings():
         unsafe_allow_html=True
     )
 
-    # 1. Stammdaten Editing
-    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten bearbeiten:', 'Edit Master Data:')}</div>", unsafe_allow_html=True)
+    # 1. Event Settings
+    st.markdown(f"<div class='sub-header'>{get_text('Event-Einstellungen:', 'Event Settings:')}</div>", unsafe_allow_html=True)
     
-    main_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_files = [f for f in os.listdir(main_dir) if f.endswith('.csv')]
-    
-    selected_csv = st.selectbox(
-        get_text("Wählen Sie die zu bearbeitende Stammdaten-Datei:", "Choose the master data file to edit:"),
-        options=csv_files,
-        key="admin_selected_csv"
-    )
-    
-    if st.button(get_text("Stammdaten bearbeiten", "Edit Master Data")):
-        st.session_state.selected_file = os.path.join(main_dir, selected_csv)
-        st.session_state.previous_page = 'admin_settings'  # Store the previous page
-        st.session_state.page = 'update_master_data'
-        st.rerun()
-
-    # 2. Event Name Change
-    st.markdown(f"<div class='sub-header'>{get_text('Event Name ändern:', 'Change Event Name:')}</div>", unsafe_allow_html=True)
+    # Event Name Change
     new_event_name = st.text_input(get_text("Neuer Event Name:", "New Event Name:"), value=st.session_state.custom_event_name)
     if st.button(get_text("Event Name aktualisieren", "Update Event Name")):
         st.session_state.custom_event_name = new_event_name
         st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
         st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
 
-    # 3. Custom Message Setting
-    st.markdown(f"<div class='sub-header'>{get_text('Benutzerdefinierte Nachricht:', 'Custom Message:')}</div>", unsafe_allow_html=True)
+    # Custom Message Setting
     custom_message = st.text_area(
         get_text("Nachricht über der Firmenauswahl eingeben:", "Enter message to display above company selection:"),
         value=st.session_state.get('custom_message', ''),
@@ -453,7 +525,7 @@ def admin_settings():
         st.session_state.custom_message = custom_message
         st.success(get_text("Benutzerdefinierte Nachricht wurde aktualisiert.", "Custom message has been updated."))
 
-    # 4. Automatic CSV Sending Feature
+    # 2. Automatic End and CSV Sending
     st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende und CSV-Versand:', 'Automatic End and CSV Sending:')}</div>", unsafe_allow_html=True)
     
     hours = st.number_input(get_text("In wie vielen Stunden soll das Event enden und die CSV versendet werden?", 
@@ -480,12 +552,13 @@ def admin_settings():
     # Option to cancel scheduled end
     if 'end_time' in st.session_state and st.session_state.end_time:
         if st.button(get_text("Geplantes Ende abbrechen", "Cancel Scheduled End")):
-            st.session_state.end_time = None
             cancel_scheduled_end()
-            st.success(get_text("Geplantes Ende wurde abgebrochen.", "Scheduled end has been cancelled."))
+            st.rerun()
 
-    # 5. PIN Change
-    st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
+    # 3. Security Settings
+    st.markdown(f"<div class='sub-header'>{get_text('Sicherheitseinstellungen:', 'Security Settings:')}</div>", unsafe_allow_html=True)
+    
+    # PIN Change
     current_pin = st.text_input(get_text("Aktuellen PIN eingeben", "Enter current PIN"), type="password", key="current_pin")
     new_pin = st.text_input(get_text("Neuen PIN eingeben", "Enter new PIN"), type="password", key="new_pin")
     confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm new PIN"), type="password", key="confirm_new_pin")
@@ -500,7 +573,34 @@ def admin_settings():
         else:
             st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
 
-    # 6. Attendance Management
+    # Datenschutz PIN Settings
+    st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN Einstellungen:', 'Data Protection PIN Settings:')}</div>", unsafe_allow_html=True)
+    
+    if st.session_state.datenschutz_pin_active:
+        st.info(get_text("Datenschutz PIN ist derzeit aktiv.", "Data Protection PIN is currently active."))
+        if st.button(get_text("Datenschutz PIN deaktivieren", "Disable Data Protection PIN"), key="disable_datenschutz_pin"):
+            st.session_state.datenschutz_pin_active = False
+            st.session_state.datenschutz_pin = None
+            st.success(get_text("Datenschutz PIN wurde deaktiviert.", "Data Protection PIN has been disabled."))
+            st.rerun()
+    else:
+        st.info(get_text("Datenschutz PIN ist derzeit nicht aktiv.", "Data Protection PIN is currently not active."))
+    
+    new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN setzen:", "Set new Data Protection PIN:"), type="password", key="new_datenschutz_pin")
+    confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen:", "Confirm new Data Protection PIN:"), type="password", key="confirm_new_datenschutz_pin")
+    
+    if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN")):
+        if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
+            st.session_state.datenschutz_pin = new_datenschutz_pin
+            st.session_state.datenschutz_pin_active = True
+            st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
+            st.rerun()
+        elif not new_datenschutz_pin:
+            st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
+        else:
+            st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+
+    # 4. Attendance Management
     st.markdown(f"<div class='sub-header'>{get_text('Anwesenheitsverwaltung:', 'Attendance Management:')}</div>", unsafe_allow_html=True)
     st.info(get_text("Hinweis: Eine CSV-Datei wird automatisch nach jeder neuen Anmeldung gespeichert.",
                      "Note: A CSV file is automatically saved after each new attendee registration."))
@@ -511,7 +611,9 @@ def admin_settings():
         # Option to delete an attendee
         st.markdown(f"<div class='sub-header'>{get_text('Teilnehmer entfernen:', 'Remove Participant:')}</div>", unsafe_allow_html=True)
         
-        name_to_id = {f"{record['Name']} ({record['Firma']})": record['ID'] for record in st.session_state.attendance_data}
+        # Create a unique identifier for each record
+        name_to_id = {f"{record['Name']} ({record['Firma']})": record.get('ID', f"{record['Name']}_{record['Firma']}") 
+                      for record in st.session_state.attendance_data}
         attendee_names = list(name_to_id.keys())
         
         selected_name = st.selectbox(get_text("Wählen Sie einen Teilnehmer zum Entfernen:", "Select a participant to remove:"), 
@@ -530,14 +632,101 @@ def admin_settings():
         # Option to save current attendance list
         st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste speichern:', 'Save Current Attendance List:')}</div>", unsafe_allow_html=True)
         
-        custom_save_name = st.text_input(get_text("Name fr die Zwischenspeicherung (optional):", "Name for intermediate save (optional):"))
+        custom_save_name = st.text_input(get_text("Name für die Zwischenspeicherung (optional):", "Name for intermediate save (optional):"))
         
         if st.button(get_text("Anwesenheitsliste Zwischenstand speichern", "Save Attendance List Snapshot")):
             save_current_attendance(custom_save_name)
     else:
         st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
-    # 7. End GetTogether Option
+    # 5. Master Data Management
+    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten bearbeiten:', 'Edit Master Data:')}</div>", unsafe_allow_html=True)
+    
+    main_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_files = [f for f in os.listdir(main_dir) if f.endswith('.csv')]
+    
+    selected_csv = st.selectbox(
+        get_text("Wählen Sie die zu bearbeitende Stammdaten-Datei:", "Choose the master data file to edit:"),
+        options=csv_files,
+        key="admin_selected_csv"
+    )
+    
+    if st.button(get_text("Stammdaten bearbeiten", "Edit Master Data")):
+        st.session_state.selected_file = os.path.join(main_dir, selected_csv)
+        st.session_state.previous_page = 'admin_settings'  # Store the previous page
+        st.session_state.page = 'update_master_data'
+        st.rerun()
+
+    # 6. Signature Requirement Setting
+    st.markdown(f"<div class='sub-header'>{get_text('Unterschrift-Einstellungen:', 'Signature Settings:')}</div>", unsafe_allow_html=True)
+    
+    require_signature = st.checkbox(get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), 
+                                    value=st.session_state.require_signature)
+    
+    if st.button(get_text("Unterschrift-Einstellung aktualisieren", "Update Signature Setting")):
+        st.session_state.require_signature = require_signature
+        st.success(get_text("Unterschrift-Einstellung wurde aktualisiert.", "Signature setting has been updated."))
+
+    # Display current signatures if any
+    if st.session_state.signatures:
+        st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Unterschriften:', 'Current Signatures:')}</div>", unsafe_allow_html=True)
+        for employee, signature_path in st.session_state.signatures.items():
+            st.write(f"{employee}:")
+            if os.path.exists(signature_path):
+                with open(signature_path, "rb") as f:
+                    img_bytes = f.read()
+                st.image(img_bytes, width=200)
+            else:
+                st.write(get_text("Unterschrift nicht gefunden", "Signature not found"))
+
+    # 7. Custom Employee Messages
+    st.markdown(f"<div class='sub-header'>{get_text('Benutzerdefinierte Mitarbeiternachrichten:', 'Custom Employee Messages:')}</div>", unsafe_allow_html=True)
+    
+    # Display current custom messages
+    if st.session_state.custom_employee_messages:
+        st.write(get_text("Aktuelle benutzerdefinierte Nachrichten:", "Current custom messages:"))
+        for employee, message in st.session_state.custom_employee_messages.items():
+            st.text(f"{employee}: {message}")
+    
+    # Fetch all employees from the CSV file
+    all_employees = get_all_employees()
+    
+    # Add or edit custom message
+    available_employees = [""] + [emp for emp in all_employees if emp not in st.session_state.custom_employee_messages]
+    new_employee = st.selectbox(
+        get_text("Mitarbeitername:", "Employee name:"),
+        options=available_employees,
+        key="new_employee_selectbox"
+    )
+    new_message = st.text_area(
+        get_text("Nachricht für Mitarbeiter bei der Anmeldung:", "Message for employee upon sign-in:"),
+        help=get_text("Diese Nachricht wird dem Mitarbeiter nach der Anmeldung angezeigt. Lassen Sie das Feld leer, um keine Nachricht anzuzeigen.",
+                      "This message will be shown to the employee after signing in. Leave empty for no message.")
+    )
+    
+    if st.button(get_text("Mitarbeiternachricht hinzufügen/aktualisieren", "Add/Update Employee Message")):
+        if new_employee and new_message:
+            st.session_state.custom_employee_messages[new_employee] = new_message
+            st.success(get_text(f"Benutzerdefinierte Nachricht für {new_employee} wurde aktualisiert.", 
+                                f"Custom message for {new_employee} has been updated."))
+            st.rerun()
+        elif new_employee:
+            st.warning(get_text("Bitte geben Sie eine Nachricht ein.", "Please enter a message."))
+        else:
+            st.warning(get_text("Bitte wählen Sie einen Mitarbeiternamen aus.", "Please select an employee name."))
+    
+    # Remove custom message
+    remove_employee = st.selectbox(
+        get_text("Mitarbeiternachricht entfernen:", "Remove employee message:"),
+        options=[""] + list(st.session_state.custom_employee_messages.keys())
+    )
+    if remove_employee and st.button(get_text("Nachricht entfernen", "Remove Message")):
+        del st.session_state.custom_employee_messages[remove_employee]
+        st.success(get_text(f"Benutzerdefinierte Nachricht für {remove_employee} wurde entfernt.",
+                            f"Custom message for {remove_employee} has been removed."))
+        st.rerun()
+
+    # 8. End GetTogether Option
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden und CSV an die Buchhaltung schicken:', 'End GetTogether and Send CSV to Accounting:')}</div>", unsafe_allow_html=True)
     
@@ -556,35 +745,6 @@ def admin_settings():
             else:
                 st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
                                   "Incorrect PIN. GetTogether could not be ended."))
-
-    # 8. Datenschutz PIN Settings
-    st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN Einstellungen:', 'Data Protection PIN Settings:')}</div>", unsafe_allow_html=True)
-    
-    if st.session_state.datenschutz_pin_active:
-        st.info(get_text("Datenschutz PIN ist derzeit aktiv.", "Data Protection PIN is currently active."))
-        if st.button(get_text("Datenschutz PIN deaktivieren", "Disable Data Protection PIN"), key="disable_datenschutz_pin"):
-            st.session_state.datenschutz_pin_active = False
-            st.session_state.datenschutz_pin = None
-            st.success(get_text("Datenschutz PIN wurde deaktiviert.", "Data Protection PIN has been disabled."))
-            st.rerun()
-    else:
-        st.info(get_text("Datenschutz PIN ist derzeit nicht aktiv.", "Data Protection PIN is currently not active."))
-    
-    new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN setzen:", "Set new Data Protection PIN:"), type="password", key="new_datenschutz_pin")
-    confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen:", "Confirm new Data Protection PIN:"), type="password", key="confirm_new_datenschutz_pin")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN"), use_container_width=True):
-            if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
-                st.session_state.datenschutz_pin = new_datenschutz_pin
-                st.session_state.datenschutz_pin_active = True
-                st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
-                st.rerun()
-            elif not new_datenschutz_pin:
-                st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
-            else:
-                st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
 
     # Back Button
     st.markdown("<br>", unsafe_allow_html=True)
@@ -720,12 +880,16 @@ def close_admin_panel():
     trigger_rerun()  # Trigger a rerun after closing the panel
 
 
-def delete_attendance_record(record_id):
+def delete_attendance_record(identifier):
     """
     Deletes an attendance record based on the record's ID.
     """
-    st.session_state.attendance_data = [record for record in st.session_state.attendance_data if record['ID'] != record_id]
-    # Note: Success message is now in the admin_settings function for immediate feedback
+    st.session_state.attendance_data = [
+        record for record in st.session_state.attendance_data 
+        if record.get('ID', f"{record['Name']}_{record['Firma']}") != identifier
+    ]
+    # Automatically save the updated attendance list
+    auto_save_attendance()
 
 def save_current_attendance(custom_save_name=None):
     """
@@ -795,96 +959,90 @@ def change_pin():
                 st.error("Die neuen PINs stimmen nicht überein.")
     elif current_pin and current_pin != st.session_state.pin:
         st.error("Aktueller PIN ist falsch.")
-# Funktionen für die verschiedenen Seiten
 
 def home():
     display_header()
-    st.markdown(f"<div class='sub-header'>{get_text('Bitte PIN setzen und GetTogether konfigurieren:', 'Please set PIN and configure GetTogether:')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('GetTogether konfigurieren:', 'Configure GetTogether:')}</div>", unsafe_allow_html=True)
     
+    # PIN setting
     col1, col2 = st.columns(2)
     with col1:
-        pin1 = st.text_input(get_text("Setze einen PIN für das GetTogether:", "Set a PIN for the GetTogether:"), type="password", key="pin1")
+        pin1 = st.text_input(get_text("Setze einen PIN:", "Set a PIN:"), type="password", key="pin1")
     with col2:
         pin2 = st.text_input(get_text("Bestätige den PIN:", "Confirm the PIN:"), type="password", key="pin2")
     
+    # Event name
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
-    # Add automatic end time option
-    auto_end_hours = st.number_input(get_text("Automatisches Ende nach (Stunden):", "Automatic end after (hours):"), 
-                                     min_value=1, value=5, step=1, key="auto_end_hours_input")
-    
-    # Add email input for accounting
-    accounting_email = st.text_input(get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
-                                     value=st.session_state.accounting_email, key="accounting_email_input")
-    
-    # File selection
+    # File selection (simplified for tablets)
+    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten-Datei:', 'Master Data File:')}</div>", unsafe_allow_html=True)
     default_file = os.path.join(os.getcwd(), 'Firmen_Teams_Mitarbeiter.csv')
-
-    # Custom file uploader with localized text
-    st.markdown(
-        f"""
-        <style>
-        .custom-file-upload {{
-            border: 1px solid #ccc;
-            display: inline-block;
-            padding: 6px 12px;
-            cursor: pointer;
-            background-color: #f0f0f0;
-        }}
-        </style>
-        <input type="file" id="fileUpload" style="display:none" accept=".csv" />
-        <label for="fileUpload" class="custom-file-upload">
-            {get_text("Datei auswählen oder hierher ziehen", "Choose a file or drag it here")}
-        </label>
-        <p id="fileName">{get_text("Keine Datei ausgewählt", "No file chosen")}</p>
-        <script>
-            const fileUpload = document.getElementById('fileUpload');
-            const fileName = document.getElementById('fileName');
-            fileUpload.addEventListener('change', function(e) {{
-                if (e.target.files.length > 0) {{
-                    fileName.textContent = e.target.files[0].name;
-                }} else {{
-                    fileName.textContent = '{get_text("Keine Datei ausgewählt", "No file chosen")}';
-                }}
-            }});
-        </script>
-        """,
-        unsafe_allow_html=True
+    selected_file = st.selectbox(
+        get_text("Wählen Sie die Stammdaten-Datei:", "Select the master data file:"),
+        options=[default_file],
+        index=0,
+        key="file_selector"
     )
-
-    # Use the default file if no file is uploaded
-    if 'selected_file' not in st.session_state or st.session_state.selected_file is None:
-        st.session_state.selected_file = default_file
-
-    st.write(get_text(f"Ausgewählte Datei: {st.session_state.selected_file}", 
-                      f"Selected file: {st.session_state.selected_file}"))
+    st.session_state.selected_file = selected_file
     
-    datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
-    if datenschutz_pin:
-        st.session_state.datenschutz_pin = datenschutz_pin
-        st.session_state.datenschutz_pin_active = True
+    # Optional automatic end
+    st.markdown(f"<div class='sub-header'>{get_text('Optionale Einstellungen:', 'Optional Settings:')}</div>", unsafe_allow_html=True)
+    enable_auto_end = st.checkbox(get_text("Automatisches Ende aktivieren", "Enable automatic end"), value=False, key="enable_auto_end")
     
-    if st.button(get_text("Stammdaten aktualisieren", "Update Master Data")):
-        st.session_state.page = 'update_master_data'
-        st.rerun()
+    if enable_auto_end:
+        auto_end_hours = st.number_input(
+            get_text("Automatisches Ende nach (Stunden):", "Automatic end after (hours):"), 
+            min_value=1, value=5, step=1, key="auto_end_hours_input"
+        )
+        accounting_email = st.text_input(
+            get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
+            value=st.session_state.accounting_email, key="accounting_email_input"
+        )
+    else:
+        auto_end_hours = None
+        accounting_email = None
     
-    if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
-        if start_get_together(pin1, pin2, custom_event_name):
-            st.session_state.auto_end_hours = auto_end_hours
-            st.session_state.accounting_email = accounting_email
-            schedule_event_end(datetime.now() + timedelta(hours=auto_end_hours))
-            st.session_state.page = 'select_company'
+    # Data protection PIN
+    datenschutz_pin = st.text_input(
+        get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), 
+        type="password", key="datenschutz_pin_input"
+    )
+    
+    # Signature requirement
+    require_signature = st.checkbox(
+        get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), 
+        value=st.session_state.require_signature
+    )
+    
+    # Buttons
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(get_text("Stammdaten aktualisieren", "Update Master Data")):
+            st.session_state.page = 'update_master_data'
             st.rerun()
+    
+    with col2:
+        if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
+            if start_get_together(pin1, pin2, custom_event_name):
+                st.session_state.auto_end_hours = auto_end_hours if enable_auto_end else None
+                st.session_state.accounting_email = accounting_email
+                st.session_state.require_signature = require_signature
+                if enable_auto_end and auto_end_hours:
+                    schedule_event_end(datetime.now() + timedelta(hours=auto_end_hours))
+                if datenschutz_pin:
+                    st.session_state.datenschutz_pin = datenschutz_pin
+                    st.session_state.datenschutz_pin_active = True
+                st.session_state.page = 'select_company'
+                st.rerun()
 initialize_session_state()
 
-def check_event_end_time():
-    while st.session_state.get_together_started:
+def check_event_end():
+    if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
         if datetime.now() >= st.session_state.end_time:
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
-            st.experimental_rerun()
-        time.sleep(60)  # Check every minute     
+            st.rerun()
 
 def select_company():
     if not check_datenschutz_pin():
@@ -1100,31 +1258,39 @@ def select_employee():
                     if idx < len(employees):
                         with cols[col]:
                             employee = employees[idx]
-                            # Check if employee is already added
                             is_added = employee in st.session_state.added_employees
                             button_key = f"employee_{employee}"
                             
                             if st.button(employee, key=button_key, use_container_width=True, 
                                          disabled=is_added):
-                                select_employee_callback(employee)
-                                if employee not in st.session_state.added_employees:
-                                    st.session_state.added_employees.append(employee)
-                                st.session_state.timer_active = True
-                                st.session_state.countdown_start_time = time.time()
-                                
-                                # Add success message
-                                new_message = get_text(
-                                    f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
-                                    f'Employee "{employee}" has been added to the attendance list.'
-                                )
-                                st.session_state.success_messages.append(new_message)
-                                st.session_state.last_message_time = time.time()
-                                
-                                # Check if all employees have been added
-                                if set(st.session_state.added_employees) == set(employees):
-                                    st.session_state.all_employees_added_time = time.time()
-                                
-                                st.rerun()  # Refresh the app
+                                if st.session_state.require_signature:
+                                    st.session_state.current_employee = employee
+                                    st.session_state.show_signature_modal = True
+                                else:
+                                    select_employee_callback(employee)
+                                    if employee not in st.session_state.added_employees:
+                                        st.session_state.added_employees.append(employee)
+                                    st.session_state.timer_active = True
+                                    st.session_state.countdown_start_time = time.time()
+                                    
+                                    # Add success message
+                                    new_message = get_text(
+                                        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+                                        f'Employee "{employee}" has been added to the attendance list.'
+                                    )
+                                    st.session_state.success_messages.append(new_message)
+                                    st.session_state.last_message_time = time.time()
+                                    
+                                    # Check if all employees have been added
+                                    if set(st.session_state.added_employees) == set(employees):
+                                        st.session_state.all_employees_added_time = time.time()
+                                    
+                                    # Show custom message if set for this employee
+                                    if employee in st.session_state.custom_employee_messages:
+                                        st.session_state.show_custom_message = True
+                                        st.session_state.current_employee = employee
+                                    
+                                    st.rerun()  # Refresh the app
                             
                             # Apply custom style to button if already selected
                             if is_added:
@@ -1138,6 +1304,10 @@ def select_employee():
                                     </style>
                                 """, unsafe_allow_html=True)
         
+        # Signature modal
+        if st.session_state.get('show_signature_modal', False):
+            signature_modal()
+
         # Display success messages
         with st.container():
             for message in st.session_state.success_messages:
@@ -1191,6 +1361,11 @@ def select_employee():
         # Zurück Button
         if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
             return_to_company_selection()
+
+        # Show custom message if set
+        if st.session_state.get('show_custom_message', False):
+            show_custom_employee_message(st.session_state.current_employee)
+
     st.session_state.last_activity_time = time.time()
 
 def return_to_company_selection():
@@ -1383,34 +1558,53 @@ def confirm_end_get_together():
             st.error("Falscher PIN. Bitte erneut eingeben.")
 
 def schedule_event_end(end_time):
-    # Cancel any existing scheduled end
-    cancel_scheduled_end()
-    
-    # Schedule new end
-    thread = threading.Thread(target=wait_and_end_event, args=(end_time,))
-    thread.daemon = True
-    thread.start()
-    st.session_state.end_thread = thread
+    st.session_state.end_time = end_time
 
-def cancel_scheduled_end():
-    if 'end_thread' in st.session_state and st.session_state.end_thread:
-        # There's no direct way to stop a thread, so we'll use a flag
-        st.session_state.cancel_end = True
-        st.session_state.end_thread = None
+def check_event_end():
+    if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
+        if datetime.now() >= st.session_state.end_time:
+            end_get_together()
+            st.session_state.get_together_started = False
+            st.session_state.page = 'home'
+            st.rerun()
 
-def wait_and_end_event(end_time):
-    st.session_state.cancel_end = False
-    while datetime.now() < end_time:
-        time.sleep(60)  # Check every minute
-        if st.session_state.cancel_end:
-            return  # Exit if cancellation is requested
-
-    # If we've reached here, it's time to end the event
-    end_get_together()
-    send_csv_to_accounting()
-    st.session_state.get_together_started = False
-    st.session_state.page = 'home'
-    st.experimental_rerun()
+def display_countdown_timer():
+    if st.session_state.end_time and st.session_state.get_together_started:
+        time_remaining = st.session_state.end_time - datetime.now()
+        if time_remaining.total_seconds() > 0:
+            days, remainder = divmod(time_remaining.total_seconds(), 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            countdown_text = get_text(
+                f"Verbleibende Zeit: {int(days)} T, {int(hours)} Std, {int(minutes)} Min",
+                f"Time remaining: {int(days)}d, {int(hours)}h, {int(minutes)}m"
+            )
+            
+            st.markdown(
+                f"""
+                <div style="
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    background-color: rgba(249, 198, 30, 0.1);
+                    color: #888888;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    z-index: 1000;
+                ">
+                    {countdown_text}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.warning(get_text("Das Event ist beendet!", "The event has ended!"))
+            end_get_together()
+            st.session_state.get_together_started = False
+            st.session_state.page = 'home'
+            st.rerun()
 
 def send_csv_to_accounting():
     if st.session_state.attendance_data:
@@ -1459,44 +1653,70 @@ def send_csv_to_accounting():
 
 def end_get_together():
     if st.session_state.attendance_data:
-        # Save the final CSV
-        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        # Generate timestamp and set up directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"Anwesenheit_{event_name}_Final_{timestamp}.csv"
         local_data_dir = "data"
         os.makedirs(local_data_dir, exist_ok=True)
-        file_path = os.path.join(local_data_dir, file_name)
-        
-        df = pd.DataFrame(st.session_state.attendance_data)
-        if 'ID' in df.columns:
-            df = df.drop('ID', axis=1)
-        df['Event Name'] = st.session_state.custom_event_name
-        df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        df['Total Attendees'] = len(df)
-        
-        df.to_csv(file_path, index=False, encoding='utf-8')
-        
-        # Send CSV to accounting via email
-        if send_csv_to_accounting(file_path, file_name):
-            st.success(get_text("Anwesenheitsliste wurde gespeichert und per E-Mail an die Buchhaltung gesendet.",
-                                "Attendance list has been saved and sent via email to accounting."))
+
+        if st.session_state.require_signature:
+            # Create a ZIP file containing all PDFs
+            zip_file_name = f"Anwesenheit_{timestamp}.zip"
+            zip_file_path = os.path.join(local_data_dir, zip_file_name)
+            with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+                for attendee in st.session_state.attendance_data:
+                    if 'RecordPath' in attendee and os.path.exists(attendee['RecordPath']):
+                        zipf.write(attendee['RecordPath'], os.path.basename(attendee['RecordPath']))
+            
+            # Provide download button for the ZIP file
+            with open(zip_file_path, "rb") as f:
+                st.download_button(
+                    label=get_text("Anwesenheitsdokumente herunterladen", "Download Attendance Documents"),
+                    data=f,
+                    file_name=zip_file_name,
+                    mime="application/zip"
+                )
         else:
-            st.warning(get_text("Anwesenheitsliste wurde gespeichert, konnte aber nicht per E-Mail gesendet werden. Bitte manuell senden.",
-                                "Attendance list has been saved but could not be sent via email. Please send manually."))
+            # If signatures were not required, create and provide the CSV as before
+            file_name = f"Anwesenheit_{timestamp}.csv"
+            file_path = os.path.join(local_data_dir, file_name)
+            
+            df = pd.DataFrame(st.session_state.attendance_data)
+            if 'ID' in df.columns:
+                df = df.drop('ID', axis=1)
+            df['Event Name'] = st.session_state.custom_event_name
+            df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            df['Total Attendees'] = len(df)
+            
+            df.to_csv(file_path, index=False, encoding='utf-8')
+            
+            # Provide download button for the CSV
+            with open(file_path, "rb") as f:
+                st.download_button(
+                    label=get_text("Anwesenheitsliste herunterladen", "Download Attendance List"),
+                    data=f,
+                    file_name=file_name,
+                    mime="text/csv"
+                )
+
+        # Reset session state
+        st.session_state.attendance_data = []
+        st.session_state.added_employees = []
+        st.session_state.signatures = {}
+        st.session_state.get_together_started = False
+        st.session_state.custom_event_name = ""
+
+        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
+                            "GetTogether has ended and the attendance list has been saved."))
         
-        # Provide download button for the final CSV
-        with open(file_path, "rb") as f:
-            st.download_button(
-                label=get_text("Finale Anwesenheitsliste herunterladen", "Download Final Attendance List"),
-                data=f,
-                file_name=file_name,
-                mime="text/csv"
-            )
+        # Set a flag to indicate that we need to rerun
+        st.session_state.trigger_rerun = True
         
-        reset_session_state()
+        # Set the page to 'home'
+        st.session_state.page = 'home'
+
         return True
     else:
-        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern vorhanden.", 
+        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern vorhanden.",
                             "No attendance data available to save."))
         return False
 
@@ -1524,47 +1744,6 @@ def auto_save_attendance():
         # Save the DataFrame to CSV, overwriting the existing file
         df.to_csv(file_path, index=False, encoding='utf-8')
 
-def end_get_together():
-    if st.session_state.attendance_data:
-        event_name = st.session_state.custom_event_name.replace(" ", "_")
-        local_data_dir = "data"
-        os.makedirs(local_data_dir, exist_ok=True)
-        
-        # Try loading the auto-saved file if it exists
-        auto_save_file = f"current_attendance_{event_name}.csv"
-        auto_save_path = os.path.join(local_data_dir, auto_save_file)
-        
-        if os.path.exists(auto_save_path):
-            df = pd.read_csv(auto_save_path)
-        else:
-            df = pd.DataFrame(st.session_state.attendance_data)
-            if 'ID' in df.columns:
-                df = df.drop('ID', axis=1)
-        
-        # Add extra details and save final file
-        df['Event Name'] = st.session_state.custom_event_name
-        df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        df['Total Attendees'] = len(df)
-        
-        file_name = f"Anwesenheit_{event_name}_Final_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        file_path = os.path.join(local_data_dir, file_name)
-        df.to_csv(file_path, index=False, encoding='utf-8')
-        
-        # Provide download button for the final CSV
-        with open(file_path, "rb") as f:
-            st.download_button(
-                label="Finale Anwesenheitsliste herunterladen",
-                data=f,
-                file_name=file_name,
-                mime="text/csv"
-            )
-        
-        return True
-    else:
-        st.warning("Keine Anwesenheitsdaten zum Speichern vorhanden.")
-        return False
-
-      
 def reset_session_state():
     """
     Resets all session states related to the GetTogether event and returns to the home page.
@@ -1609,6 +1788,292 @@ def check_datenschutz_pin():
                         st.error(get_text("Falscher PIN. Zugriff verweigert.", "Incorrect PIN. Access denied."))
             return False
     return True
+
+def signature_modal():
+    st.markdown("### " + get_text("Unterschrift erforderlich", "Signature Required"))
+    st.write(get_text(f"Bitte unterschreiben Sie für {st.session_state.current_employee}",
+                      f"Please sign for {st.session_state.current_employee}"))
+
+    # Create a canvas for drawing the signature
+    canvas_result = st_canvas(
+        fill_color="rgba(255, 165, 0, 0.3)",  # Color of the drawing
+        stroke_width=2,
+        stroke_color="#000000",
+        background_color="#ffffff",
+        height=150,
+        drawing_mode="freedraw",
+        key="signature_canvas",
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(get_text("Bestätigen", "Confirm")):
+            if canvas_result.image_data is not None:
+                # Convert the image data to a PNG and save it
+                img_array = np.array(canvas_result.image_data)
+                img = Image.fromarray(img_array.astype('uint8'), 'RGBA')
+                img_byte_arr = BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                img_byte_arr = img_byte_arr.getvalue()
+
+                # Create a signatures directory if it doesn't exist
+                os.makedirs('signatures', exist_ok=True)
+                
+                # Save the signature as a PNG file
+                file_name = f"signatures/{st.session_state.current_employee.replace(' ', '_')}.png"
+                with open(file_name, "wb") as f:
+                    f.write(img_byte_arr)
+                
+                # Store the file path in session state
+                st.session_state.signatures[st.session_state.current_employee] = file_name
+                
+                select_employee_callback(st.session_state.current_employee)
+                if st.session_state.current_employee not in st.session_state.added_employees:
+                    st.session_state.added_employees.append(st.session_state.current_employee)
+                
+                # Add success message
+                new_message = get_text(
+                    f'Mitarbeiter "{st.session_state.current_employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+                    f'Employee "{st.session_state.current_employee}" has been added to the attendance list.'
+                )
+                st.session_state.success_messages.append(new_message)
+                st.session_state.last_message_time = time.time()
+                
+                # Start or reset the timer
+                st.session_state.timer_active = True
+                st.session_state.countdown_start_time = time.time()
+                
+                # Check if all employees have been added
+                employees = get_employees_for_current_team()
+                if set(st.session_state.added_employees) == set(employees):
+                    st.session_state.all_employees_added_time = time.time()
+                
+                # Show custom message if set for this employee
+                if st.session_state.current_employee in st.session_state.custom_employee_messages:
+                    st.session_state.show_custom_message = True
+                
+                st.session_state.show_signature_modal = False
+                st.rerun()
+            else:
+                st.warning(get_text("Bitte unterschreiben Sie bevor Sie bestätigen.", 
+                                    "Please sign before confirming."))
+
+    with col2:
+        if st.button(get_text("Abbrechen", "Cancel")):
+            st.session_state.show_signature_modal = False
+            st.rerun()
+
+def get_employees_for_current_team():
+    file_path = "Firmen_Teams_Mitarbeiter.csv"
+    df = pd.read_csv(file_path)
+    df.columns = ['Firma', 'Team', 'Mitarbeiter']
+    employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                   (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+    return employees
+
+def select_employee():
+    if not check_datenschutz_pin():
+        return
+
+    display_header()
+    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    
+    if st.session_state.show_admin_panel:
+        admin_panel()
+    
+    if not st.session_state.admin_access_granted:
+        file_path = "Firmen_Teams_Mitarbeiter.csv"
+        if not os.path.exists(file_path):
+            st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                              f"The file '{file_path}' was not found. Please check the path and filename."))
+            return
+        try:
+            df = pd.read_csv(file_path)
+            df.columns = ['Firma', 'Team', 'Mitarbeiter']
+            employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                           (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+        except Exception as e:
+            st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                              f"Error reading the CSV file: {e}"))
+            return
+        if len(employees) == 0:
+            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
+                                "No employees found for the selected team."))
+            return
+
+        st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter*innen auswählen:', 'Select employees:')}</div>", unsafe_allow_html=True)
+        
+        # Initialize session state variables
+        if 'added_employees' not in st.session_state:
+            st.session_state.added_employees = []
+        if 'timer_active' not in st.session_state:
+            st.session_state.timer_active = False
+        if 'countdown_start_time' not in st.session_state:
+            st.session_state.countdown_start_time = None
+        if 'current_company_team' not in st.session_state:
+            st.session_state.current_company_team = None
+        if 'success_messages' not in st.session_state:
+            st.session_state.success_messages = []
+        if 'last_message_time' not in st.session_state:
+            st.session_state.last_message_time = None
+        if 'all_employees_added_time' not in st.session_state:
+            st.session_state.all_employees_added_time = None
+
+        # Check if company or team has changed
+        current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
+        if st.session_state.current_company_team != current_company_team:
+            st.session_state.added_employees = []
+            st.session_state.current_company_team = current_company_team
+            st.session_state.timer_active = False
+            st.session_state.countdown_start_time = None
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
+            st.session_state.all_employees_added_time = None
+
+        # Calculate the number of columns based on the number of employees
+        num_cols = min(3, len(employees))  # Maximum of 3 columns
+        num_rows = ceil(len(employees) / num_cols)
+        
+        # Create a centered container for the buttons
+        container = st.container()
+        with container:
+            for row in range(num_rows):
+                cols = st.columns(num_cols)
+                for col in range(num_cols):
+                    idx = row * num_cols + col
+                    if idx < len(employees):
+                        with cols[col]:
+                            employee = employees[idx]
+                            is_added = employee in st.session_state.added_employees
+                            button_key = f"employee_{employee}"
+                            
+                            if st.button(employee, key=button_key, use_container_width=True, 
+                                         disabled=is_added):
+                                if st.session_state.require_signature:
+                                    st.session_state.current_employee = employee
+                                    st.session_state.show_signature_modal = True
+                                else:
+                                    select_employee_callback(employee)
+                                    if employee not in st.session_state.added_employees:
+                                        st.session_state.added_employees.append(employee)
+                                    st.session_state.timer_active = True
+                                    st.session_state.countdown_start_time = time.time()
+                                    
+                                    # Add success message
+                                    new_message = get_text(
+                                        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+                                        f'Employee "{employee}" has been added to the attendance list.'
+                                    )
+                                    st.session_state.success_messages.append(new_message)
+                                    st.session_state.last_message_time = time.time()
+                                    
+                                    # Check if all employees have been added
+                                    if set(st.session_state.added_employees) == set(employees):
+                                        st.session_state.all_employees_added_time = time.time()
+                                    
+                                    # Show custom message if set for this employee
+                                    if employee in st.session_state.custom_employee_messages:
+                                        st.session_state.show_custom_message = True
+                                        st.session_state.current_employee = employee
+                                    
+                                    st.rerun()  # Refresh the app
+                            
+                            # Apply custom style to button if already selected
+                            if is_added:
+                                st.markdown(f"""
+                                    <style>
+                                    div.stButton > button#{button_key} {{
+                                        background-color: #ffcccb !important;
+                                        color: #000000 !important;
+                                        cursor: not-allowed !important;
+                                    }}
+                                    </style>
+                                """, unsafe_allow_html=True)
+        
+        # Signature modal
+        if st.session_state.get('show_signature_modal', False):
+            signature_modal()
+
+        # Display success messages
+        with st.container():
+            for message in st.session_state.success_messages:
+                st.success(message)
+        
+        # Remove old messages after 5 seconds
+        current_time = time.time()
+        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
+        
+        # Add button to revert last selection
+        if st.session_state.added_employees:
+            if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
+                         key="undo_last_selection",
+                         use_container_width=True):
+                last_employee = st.session_state.added_employees.pop()
+                undo_message = get_text(
+                    f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
+                    f'Employee "{last_employee}" has been removed from the attendance list.'
+                )
+                st.session_state.success_messages.append(undo_message)
+                st.session_state.last_message_time = time.time()
+                st.rerun()
+        
+        # Check if all employees have been added and return after 5 seconds
+        if st.session_state.all_employees_added_time:
+            time_since_all_added = current_time - st.session_state.all_employees_added_time
+            if time_since_all_added <= 5:
+                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+            else:
+                return_to_company_selection()
+        
+        # Check if timer is active (only if not all employees have been added)
+        if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
+            # Calculate remaining time
+            elapsed_time = time.time() - st.session_state.countdown_start_time
+            remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
+            
+            # Display countdown
+            st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
+            
+            # If the countdown is finished, reset and go back to company selection
+            if remaining_time == 0:
+                return_to_company_selection()
+        
+        # Automatically refresh the app every second to update the countdown and messages
+        st_autorefresh(interval=1000, key="autorefresh")
+        
+        # Zurück Button
+        if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
+            return_to_company_selection()
+
+        # Show custom message if set
+        if st.session_state.get('show_custom_message', False):
+            show_custom_employee_message(st.session_state.current_employee)
+
+    st.session_state.last_activity_time = time.time()
+
+def show_custom_employee_message(employee):
+    if employee in st.session_state.custom_employee_messages:
+        st.markdown("### " + get_text("Wichtige Mitteilung", "Important Notice"))
+        st.write(st.session_state.custom_employee_messages[employee])
+        if st.button(get_text("Schließen", "Close"), key="close_custom_message"):
+            st.session_state.show_custom_message = False
+            st.rerun()
+
+def get_all_employees():
+    file_path = "Firmen_Teams_Mitarbeiter.csv"
+    try:
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
+        all_employees = df['Mitarbeiter'].unique().tolist()
+        return sorted(all_employees)
+    except Exception as e:
+        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                          f"Error reading the CSV file: {e}"))
+        return []
 
 # Call to start the navigation
 initialize_session_state()
