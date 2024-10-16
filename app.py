@@ -387,7 +387,8 @@ def display_countdown_timer():
 
 def admin_settings():
     """
-    Function to display the Admin Einstellungen with improved organization and automatic CSV sending feature.
+    Function to display the Admin Einstellungen with improved organization, automatic CSV sending feature,
+    and Stammdaten editing option.
     """
     st.markdown(
         f"""
@@ -404,7 +405,24 @@ def admin_settings():
         unsafe_allow_html=True
     )
 
-    # 1. Event Name Change
+    # 1. Stammdaten Editing
+    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten bearbeiten:', 'Edit Master Data:')}</div>", unsafe_allow_html=True)
+    
+    main_dir = r"C:\Users\Konrad.Reyhe\Projektarbeit"
+    csv_files = [f for f in os.listdir(main_dir) if f.endswith('.csv')]
+    
+    selected_csv = st.selectbox(
+        get_text("Wählen Sie die zu bearbeitende Stammdaten-Datei:", "Choose the master data file to edit:"),
+        options=csv_files,
+        key="admin_selected_csv"
+    )
+    
+    if st.button(get_text("Stammdaten bearbeiten", "Edit Master Data")):
+        st.session_state.selected_file = os.path.join(main_dir, selected_csv)
+        st.session_state.page = 'update_master_data'
+        st.rerun()
+
+    # 2. Event Name Change
     st.markdown(f"<div class='sub-header'>{get_text('Event Name ändern:', 'Change Event Name:')}</div>", unsafe_allow_html=True)
     new_event_name = st.text_input(get_text("Neuer Event Name:", "New Event Name:"), value=st.session_state.custom_event_name)
     if st.button(get_text("Event Name aktualisieren", "Update Event Name")):
@@ -412,7 +430,7 @@ def admin_settings():
         st.success(get_text(f"Event Name wurde zu '{new_event_name}' geändert.", f"Event Name has been changed to '{new_event_name}'."))
         st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
 
-    # 2. Custom Message Setting
+    # 3. Custom Message Setting
     st.markdown(f"<div class='sub-header'>{get_text('Benutzerdefinierte Nachricht:', 'Custom Message:')}</div>", unsafe_allow_html=True)
     custom_message = st.text_area(
         get_text("Nachricht über der Firmenauswahl eingeben:", "Enter message to display above company selection:"),
@@ -424,7 +442,7 @@ def admin_settings():
         st.session_state.custom_message = custom_message
         st.success(get_text("Benutzerdefinierte Nachricht wurde aktualisiert.", "Custom message has been updated."))
 
-    # 3. Automatic CSV Sending Feature
+    # 4. Automatic CSV Sending Feature
     st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende und CSV-Versand:', 'Automatic End and CSV Sending:')}</div>", unsafe_allow_html=True)
     
     hours = st.number_input(get_text("In wie vielen Stunden soll das Event enden und die CSV versendet werden?", 
@@ -450,7 +468,7 @@ def admin_settings():
             cancel_scheduled_end()
             st.success(get_text("Geplantes Ende wurde abgebrochen.", "Scheduled end has been cancelled."))
 
-    # 4. PIN Change
+    # 5. PIN Change
     st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
     current_pin = st.text_input(get_text("Aktuellen PIN eingeben", "Enter current PIN"), type="password", key="current_pin")
     new_pin = st.text_input(get_text("Neuen PIN eingeben", "Enter new PIN"), type="password", key="new_pin")
@@ -466,7 +484,7 @@ def admin_settings():
         else:
             st.error(get_text("Der aktuelle PIN ist falsch.", "The current PIN is incorrect."))
 
-    # 5. Attendance Management
+    # 6. Attendance Management
     st.markdown(f"<div class='sub-header'>{get_text('Anwesenheitsverwaltung:', 'Attendance Management:')}</div>", unsafe_allow_html=True)
     st.info(get_text("Hinweis: Eine CSV-Datei wird automatisch nach jeder neuen Anmeldung gespeichert.",
                      "Note: A CSV file is automatically saved after each new attendee registration."))
@@ -503,7 +521,7 @@ def admin_settings():
     else:
         st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
-    # 6. End GetTogether Option
+    # 7. End GetTogether Option
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden und CSV an die Buchhaltung schicken:', 'End GetTogether and Send CSV to Accounting:')}</div>", unsafe_allow_html=True)
     
@@ -529,6 +547,103 @@ def admin_settings():
         st.session_state.page = 'select_company'
         st.session_state.show_admin_panel = False
         st.session_state.admin_access_granted = False
+        st.rerun()
+
+def update_master_data():
+    display_header()
+    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten aktualisieren', 'Update Master Data')}</div>", unsafe_allow_html=True)
+    
+    file_path = st.session_state.selected_file
+    
+    if not os.path.exists(file_path):
+        st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                          f"The file '{file_path}' was not found. Please check the path and filename."))
+        return
+
+    df = pd.read_csv(file_path)
+    
+    # Display current data
+    st.dataframe(df)
+    
+    # Check column names
+    columns = df.columns.tolist()
+    st.write(get_text("Verfügbare Spalten:", "Available columns:"), columns)
+
+    # Get existing company and team names if the columns exist
+    existing_companies = sorted(df[columns[0]].unique().tolist()) if len(columns) > 0 else []
+    existing_teams = sorted(df[columns[1]].unique().tolist()) if len(columns) > 1 else []
+
+    # Add new entry
+    st.markdown(f"<div class='sub-header'>{get_text('Neuen Eintrag hinzufügen:', 'Add New Entry:')}</div>", unsafe_allow_html=True)
+    new_entry = {}
+    for i, col in enumerate(columns):
+        if i == 0:  # First column (assumed to be company)
+            new_entry[col] = st.selectbox(
+                get_text(f"{col} (wählen oder neu eingeben):", f"{col} (select or enter new):"),
+                options=existing_companies + [''],
+                index=len(existing_companies),
+                key=f"new_entry_{col}"
+            )
+        elif i == 1:  # Second column (assumed to be team)
+            new_entry[col] = st.selectbox(
+                get_text(f"{col} (wählen oder neu eingeben):", f"{col} (select or enter new):"),
+                options=existing_teams + [''],
+                index=len(existing_teams),
+                key=f"new_entry_{col}"
+            )
+        else:
+            new_entry[col] = st.text_input(f"{col}:", key=f"new_entry_{col}")
+    
+    if st.button(get_text("Hinzufügen", "Add")):
+        new_row = pd.DataFrame([new_entry])
+        df = pd.concat([df, new_row], ignore_index=True)
+        df.to_csv(file_path, index=False)
+        st.success(get_text("Neuer Eintrag hinzugefügt.", "New entry added."))
+        st.rerun()
+    
+    # Edit existing entry
+    st.markdown(f"<div class='sub-header'>{get_text('Bestehenden Eintrag bearbeiten:', 'Edit Existing Entry:')}</div>", unsafe_allow_html=True)
+    
+    # Create a unique identifier for each row
+    df['identifier'] = df.apply(lambda row: " - ".join(str(row[col]) for col in columns), axis=1)
+    
+    selected_entry = st.selectbox(
+        get_text("Wählen Sie einen Eintrag zum Bearbeiten:", "Select an entry to edit:"),
+        options=df['identifier'].tolist(),
+        format_func=lambda x: x,
+        key="edit_entry_select"
+    )
+    
+    if selected_entry:
+        selected_row = df[df['identifier'] == selected_entry].iloc[0]
+        edit_column = st.selectbox(get_text("Zu bearbeitende Spalte:", "Column to edit:"), options=columns, key="edit_column_select")
+        
+        if edit_column == columns[0]:  # First column (assumed to be company)
+            new_value = st.selectbox(
+                get_text("Neuer Wert (wählen oder eingeben):", "New value (select or enter):"),
+                options=existing_companies + [selected_row[edit_column], ''],
+                index=existing_companies.index(selected_row[edit_column]) if selected_row[edit_column] in existing_companies else len(existing_companies),
+                key="edit_company_value"
+            )
+        elif edit_column == columns[1]:  # Second column (assumed to be team)
+            new_value = st.selectbox(
+                get_text("Neuer Wert (wählen oder eingeben):", "New value (select or enter):"),
+                options=existing_teams + [selected_row[edit_column], ''],
+                index=existing_teams.index(selected_row[edit_column]) if selected_row[edit_column] in existing_teams else len(existing_teams),
+                key="edit_team_value"
+            )
+        else:
+            new_value = st.text_input(get_text("Neuer Wert:", "New value:"), value=str(selected_row[edit_column]), key="edit_other_value")
+        
+        if st.button(get_text("Aktualisieren", "Update")):
+            df.loc[df['identifier'] == selected_entry, edit_column] = new_value
+            df = df.drop('identifier', axis=1)  # Remove the temporary identifier column
+            df.to_csv(file_path, index=False)
+            st.success(get_text("Eintrag aktualisiert.", "Entry updated."))
+            st.rerun()
+    
+    if st.button(get_text("Zurück", "Back")):
+        st.session_state.page = 'home'
         st.rerun()
 
 def reset_to_company_selection():
@@ -643,6 +758,52 @@ def home():
     
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
+    # File selection
+    default_file = r"C:\Users\Konrad.Reyhe\Projektarbeit\Firmen_Teams_Mitarbeiter.csv"
+
+    # Custom file uploader with localized text
+    st.markdown(
+        f"""
+        <style>
+        .custom-file-upload {{
+            border: 1px solid #ccc;
+            display: inline-block;
+            padding: 6px 12px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+        }}
+        </style>
+        <input type="file" id="fileUpload" style="display:none" accept=".csv" />
+        <label for="fileUpload" class="custom-file-upload">
+            {get_text("Datei auswählen oder hierher ziehen", "Choose a file or drag it here")}
+        </label>
+        <p id="fileName">{get_text("Keine Datei ausgewählt", "No file chosen")}</p>
+        <script>
+            const fileUpload = document.getElementById('fileUpload');
+            const fileName = document.getElementById('fileName');
+            fileUpload.addEventListener('change', function(e) {{
+                if (e.target.files.length > 0) {{
+                    fileName.textContent = e.target.files[0].name;
+                }} else {{
+                    fileName.textContent = '{get_text("Keine Datei ausgewählt", "No file chosen")}';
+                }}
+            }});
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Use the default file if no file is uploaded
+    if 'selected_file' not in st.session_state or st.session_state.selected_file is None:
+        st.session_state.selected_file = default_file
+
+    st.write(get_text(f"Ausgewählte Datei: {st.session_state.selected_file}", 
+                      f"Selected file: {st.session_state.selected_file}"))
+    
+    if st.button(get_text("Stammdaten aktualisieren", "Update Master Data")):
+        st.session_state.page = 'update_master_data'
+        st.rerun()
+    
     if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
         if start_get_together(pin1, pin2, custom_event_name):
             st.session_state.page = 'select_company'
@@ -751,8 +912,7 @@ def select_team():
         admin_panel()
     
     if not st.session_state.admin_access_granted:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
+        file_path = r"C:\Users\Konrad.Reyhe\Projektarbeit\Firmen_Teams_Mitarbeiter.csv"
         if not os.path.exists(file_path):
             st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
                               f"The file '{file_path}' was not found. Please check the path and filename."))
@@ -799,10 +959,10 @@ def select_employee():
         admin_panel()
     
     if not st.session_state.admin_access_granted:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(script_dir, 'Firmen_Teams_Mitarbeiter.csv')
+        file_path = r"C:\Users\Konrad.Reyhe\Projektarbeit\Firmen_Teams_Mitarbeiter.csv"
         if not os.path.exists(file_path):
-            st.error(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.")
+            st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                              f"The file '{file_path}' was not found. Please check the path and filename."))
             return
         try:
             df = pd.read_csv(file_path)
@@ -810,13 +970,15 @@ def select_employee():
             employees = df[(df["Firma"] == st.session_state.selected_company) & 
                            (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
         except Exception as e:
-            st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
+            st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                              f"Error reading the CSV file: {e}"))
             return
         if len(employees) == 0:
-            st.warning("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.")
+            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
+                                "No employees found for the selected team."))
             return
 
-        st.markdown("<div class='sub-header'>{}</div>".format(get_text("Mitarbeiter*innen auswählen:", "Select employees:")), unsafe_allow_html=True)
+        st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter*innen auswählen:', 'Select employees:')}</div>", unsafe_allow_html=True)
         
         # Initialize session state variables
         if 'added_employees' not in st.session_state:
@@ -845,42 +1007,6 @@ def select_employee():
             st.session_state.last_message_time = None
             st.session_state.all_employees_added_time = None
 
-        # Custom CSS for the buttons and messages
-        st.markdown("""
-            <style>
-            .stButton > button {
-                width: 100%;
-            }
-            .employee-added {
-                background-color: #ffcccb !important;
-                color: #000000 !important;
-            }
-            .success-message-container {
-                margin-bottom: 20px;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Display success messages
-        with st.container():
-            for message in st.session_state.success_messages:
-                st.success(message)
-        
-        # Remove old messages after 5 seconds
-        current_time = time.time()
-        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
-            st.session_state.success_messages = []
-            st.session_state.last_message_time = None
-        
-        # Check if all employees have been added and return after 5 seconds
-        if st.session_state.all_employees_added_time:
-            time_since_all_added = current_time - st.session_state.all_employees_added_time
-            if time_since_all_added <= 5:
-                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
-                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
-            else:
-                return_to_company_selection()
-        
         # Calculate the number of columns based on the number of employees
         num_cols = min(3, len(employees))  # Maximum of 3 columns
         num_rows = ceil(len(employees) / num_cols)
@@ -932,6 +1058,26 @@ def select_employee():
                                     }}
                                     </style>
                                 """, unsafe_allow_html=True)
+        
+        # Display success messages
+        with st.container():
+            for message in st.session_state.success_messages:
+                st.success(message)
+        
+        # Remove old messages after 5 seconds
+        current_time = time.time()
+        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
+        
+        # Check if all employees have been added and return after 5 seconds
+        if st.session_state.all_employees_added_time:
+            time_since_all_added = current_time - st.session_state.all_employees_added_time
+            if time_since_all_added <= 5:
+                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+            else:
+                return_to_company_selection()
         
         # Check if timer is active (only if not all employees have been added)
         if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
@@ -1067,6 +1213,12 @@ def navigate():
         select_employee()
     elif st.session_state.page == 'admin_settings':
         admin_settings()
+    elif st.session_state.page == 'update_master_data':
+        update_master_data()
+    else:
+        st.error(get_text(f"Unbekannte Seite: {st.session_state.page}", f"Unknown page: {st.session_state.page}"))
+        st.session_state.page = 'home'
+        st.rerun()
 
 def admin_panel_timeout():
     if st.session_state.admin_access_granted:
