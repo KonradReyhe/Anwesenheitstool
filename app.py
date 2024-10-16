@@ -882,7 +882,7 @@ def select_company():
         st.markdown(f"<div class='important-text'>{get_text('Weitere Auswahl:', 'Additional options:')}</div>", unsafe_allow_html=True)
         cols = st.columns(3)
         with cols[0]:
-            st.button("SUV", key="SUV", on_click=select_company_callback, args=("SUV",), use_container_width=True)
+            st.button("iLOC", key="iLOC", on_click=select_company_callback, args=("iLOC",), use_container_width=True)
         with cols[1]:
             external_partners = get_text("Externe Partner", "External Partners")
             st.button(external_partners, key="Externe Partner", on_click=select_company_callback, args=(external_partners,), use_container_width=True)
@@ -1070,6 +1070,20 @@ def select_employee():
             st.session_state.success_messages = []
             st.session_state.last_message_time = None
         
+        # Add button to revert last selection
+        if st.session_state.added_employees:
+            if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
+                         key="undo_last_selection",
+                         use_container_width=True):
+                last_employee = st.session_state.added_employees.pop()
+                undo_message = get_text(
+                    f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
+                    f'Employee "{last_employee}" has been removed from the attendance list.'
+                )
+                st.session_state.success_messages.append(undo_message)
+                st.session_state.last_message_time = time.time()
+                st.rerun()
+        
         # Check if all employees have been added and return after 5 seconds
         if st.session_state.all_employees_added_time:
             time_since_all_added = current_time - st.session_state.all_employees_added_time
@@ -1128,8 +1142,8 @@ def display_header():
         title = get_text("GetTogether Anwesenheitstool", "GetTogether Attendance Tool")
         st.markdown(f"<div class='title'>{title}</div>", unsafe_allow_html=True)
         
-        # Add subtitle
-        subtitle = get_text("Anwesenheit bei GetTogethers dokumentieren", "Document attendance at GetTogethers")
+        # Updated subtitle
+        subtitle = get_text("Präsenz bei Firmenevents erfassen", "Record presence at company events")
         st.markdown(f"<div class='subtitle'>{subtitle}</div>", unsafe_allow_html=True)
         
         # Banner
