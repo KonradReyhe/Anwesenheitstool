@@ -197,6 +197,12 @@ def initialize_session_state():
         st.session_state.end_thread = None
     if 'cancel_end' not in st.session_state:
         st.session_state.cancel_end = False
+    if 'datenschutz_pin' not in st.session_state:
+        st.session_state.datenschutz_pin = None
+    if 'datenschutz_pin_active' not in st.session_state:
+        st.session_state.datenschutz_pin_active = False
+    if 'last_activity_time' not in st.session_state:
+        st.session_state.last_activity_time = time.time()
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -515,7 +521,7 @@ def admin_settings():
         # Option to save current attendance list
         st.markdown(f"<div class='sub-header'>{get_text('Aktuelle Anwesenheitsliste speichern:', 'Save Current Attendance List:')}</div>", unsafe_allow_html=True)
         
-        custom_save_name = st.text_input(get_text("Name für die Zwischenspeicherung (optional):", "Name for intermediate save (optional):"))
+        custom_save_name = st.text_input(get_text("Name fr die Zwischenspeicherung (optional):", "Name for intermediate save (optional):"))
         
         if st.button(get_text("Anwesenheitsliste Zwischenstand speichern", "Save Attendance List Snapshot")):
             save_current_attendance(custom_save_name)
@@ -541,6 +547,35 @@ def admin_settings():
             else:
                 st.error(get_text("Falscher PIN. GetTogether konnte nicht beendet werden.",
                                   "Incorrect PIN. GetTogether could not be ended."))
+
+    # 8. Datenschutz PIN Settings
+    st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN Einstellungen:', 'Data Protection PIN Settings:')}</div>", unsafe_allow_html=True)
+    
+    if st.session_state.datenschutz_pin_active:
+        st.info(get_text("Datenschutz PIN ist derzeit aktiv.", "Data Protection PIN is currently active."))
+        if st.button(get_text("Datenschutz PIN deaktivieren", "Disable Data Protection PIN"), key="disable_datenschutz_pin"):
+            st.session_state.datenschutz_pin_active = False
+            st.session_state.datenschutz_pin = None
+            st.success(get_text("Datenschutz PIN wurde deaktiviert.", "Data Protection PIN has been disabled."))
+            st.rerun()
+    else:
+        st.info(get_text("Datenschutz PIN ist derzeit nicht aktiv.", "Data Protection PIN is currently not active."))
+    
+    new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN setzen:", "Set new Data Protection PIN:"), type="password", key="new_datenschutz_pin")
+    confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen:", "Confirm new Data Protection PIN:"), type="password", key="confirm_new_datenschutz_pin")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN"), use_container_width=True):
+            if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
+                st.session_state.datenschutz_pin = new_datenschutz_pin
+                st.session_state.datenschutz_pin_active = True
+                st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
+                st.rerun()
+            elif not new_datenschutz_pin:
+                st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
+            else:
+                st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
 
     # Back Button
     st.markdown("<br>", unsafe_allow_html=True)
@@ -807,6 +842,11 @@ def home():
     st.write(get_text(f"Ausgewählte Datei: {st.session_state.selected_file}", 
                       f"Selected file: {st.session_state.selected_file}"))
     
+    datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
+    if datenschutz_pin:
+        st.session_state.datenschutz_pin = datenschutz_pin
+        st.session_state.datenschutz_pin_active = True
+    
     if st.button(get_text("Stammdaten aktualisieren", "Update Master Data")):
         st.session_state.page = 'update_master_data'
         st.rerun()
@@ -827,6 +867,9 @@ def check_event_end_time():
         time.sleep(60)  # Check every minute     
 
 def select_company():
+    if not check_datenschutz_pin():
+        return
+
     display_header()
     
     # Display countdown timer
@@ -896,6 +939,8 @@ def select_company():
         with cols[2]:
             guest = get_text("Gast", "Guest")
             st.button(guest, key="Guest", on_click=select_company_callback, args=(guest,), use_container_width=True)
+    st.session_state.last_activity_time = time.time()
+
 def guest_info():
     display_header()
     st.markdown(f"<div class='sub-header'>{get_text('Bitte Ihren Namen eingeben:', 'Please enter your name:')}</div>", unsafe_allow_html=True)
@@ -912,6 +957,9 @@ def toggle_language():
         st.session_state.language = 'DE'
 
 def select_team():
+    if not check_datenschutz_pin():
+        return
+
     display_header()
     st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
     
@@ -956,8 +1004,12 @@ def select_team():
         
         # Zurück Button
         st.button(get_text("Zurück", "Back"), on_click=go_back_to_company)
+    st.session_state.last_activity_time = time.time()
 
 def select_employee():
+    if not check_datenschutz_pin():
+        return
+
     display_header()
     st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
@@ -1119,6 +1171,7 @@ def select_employee():
         # Zurück Button
         if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
             return_to_company_selection()
+    st.session_state.last_activity_time = time.time()
 
 def return_to_company_selection():
     st.session_state.page = 'select_company'
@@ -1510,8 +1563,32 @@ def reset_session_state():
     st.session_state.custom_message = ''
     st.session_state.confirmation_needed = False
 
-
-
+def check_datenschutz_pin():
+    if st.session_state.datenschutz_pin_active:
+        current_time = time.time()
+        if current_time - st.session_state.last_activity_time > 300:  # 5 minutes of inactivity
+            st.session_state.datenschutz_pin_active = False
+        
+        if not st.session_state.datenschutz_pin_active:
+            display_header()  # Display the header with banner
+            st.markdown(f"<div class='sub-header'>{get_text('Datenschutz-Sperre', 'Data Protection Lock')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='important-text'>{get_text('Bitte geben Sie den Datenschutz-PIN ein, um fortzufahren.', 'Please enter the Data Protection PIN to continue.')}</div>", unsafe_allow_html=True)
+            
+            entered_pin = st.text_input(get_text("Datenschutz PIN:", "Data Protection PIN:"), type="password", key="datenschutz_pin_check")
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button(get_text("Zugriff anfordern", "Request Access"), use_container_width=True):
+                    if entered_pin == st.session_state.datenschutz_pin:
+                        st.session_state.datenschutz_pin_active = True
+                        st.session_state.last_activity_time = current_time
+                        st.success(get_text("PIN korrekt. Zugriff gewährt.", "PIN correct. Access granted."))
+                        time.sleep(1)  # Give user time to see the success message
+                        st.rerun()
+                    else:
+                        st.error(get_text("Falscher PIN. Zugriff verweigert.", "Incorrect PIN. Access denied."))
+            return False
+    return True
 
 # Call to start the navigation
 initialize_session_state()
