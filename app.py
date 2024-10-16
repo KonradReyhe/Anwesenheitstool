@@ -759,7 +759,7 @@ def home():
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
     # File selection
-    default_file = r"C:\Users\Konrad.Reyhe\Projektarbeit\Firmen_Teams_Mitarbeiter.csv"
+    default_file = os.path.join(os.getcwd(), 'Firmen_Teams_Mitarbeiter.csv')
 
     # Custom file uploader with localized text
     st.markdown(
