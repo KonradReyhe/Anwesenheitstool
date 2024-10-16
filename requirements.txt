@@ -46,4 +46,5 @@ tzdata==2024.2
 urllib3==2.2.3
 watchdog==5.0.3
 Werkzeug==3.0.4
+reportlab==3.6.12
 streamlit-drawable-canvas==0.8.0
