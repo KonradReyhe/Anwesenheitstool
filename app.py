@@ -408,7 +408,7 @@ def admin_settings():
     # 1. Stammdaten Editing
     st.markdown(f"<div class='sub-header'>{get_text('Stammdaten bearbeiten:', 'Edit Master Data:')}</div>", unsafe_allow_html=True)
     
-    main_dir = r"C:\Users\Konrad.Reyhe\Projektarbeit"
+    main_dir = os.path.dirname(os.path.abspath(__file__))
     csv_files = [f for f in os.listdir(main_dir) if f.endswith('.csv')]
     
     selected_csv = st.selectbox(
