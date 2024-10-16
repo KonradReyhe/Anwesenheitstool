@@ -203,6 +203,10 @@ def initialize_session_state():
         st.session_state.datenschutz_pin_active = False
     if 'last_activity_time' not in st.session_state:
         st.session_state.last_activity_time = time.time()
+    if 'auto_end_hours' not in st.session_state:
+        st.session_state.auto_end_hours = None
+    if 'accounting_email' not in st.session_state:
+        st.session_state.accounting_email = "accounting@example.com"
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -454,14 +458,19 @@ def admin_settings():
     
     hours = st.number_input(get_text("In wie vielen Stunden soll das Event enden und die CSV versendet werden?", 
                                      "In how many hours should the event end and send the CSV?"), 
-                            min_value=1, value=5, step=1)
+                            min_value=1, value=st.session_state.auto_end_hours, step=1)
     
-    if st.button(get_text("Automatisches Ende setzen", "Set Automatic End")):
+    accounting_email = st.text_input(get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
+                                     value=st.session_state.accounting_email)
+    
+    if st.button(get_text("Automatisches Ende aktualisieren", "Update Automatic End")):
+        st.session_state.auto_end_hours = hours
+        st.session_state.accounting_email = accounting_email
         end_time = datetime.now() + timedelta(hours=hours)
         st.session_state.end_time = end_time
         schedule_event_end(end_time)
-        st.success(get_text(f"Event wird in {hours} Stunden automatisch beendet und CSV versendet.", 
-                            f"Event will automatically end and send CSV in {hours} hours."))
+        st.success(get_text(f"Event wird in {hours} Stunden automatisch beendet und CSV an {accounting_email} versendet.", 
+                            f"Event will automatically end and send CSV to {accounting_email} in {hours} hours."))
 
     # Display current end time if set
     if 'end_time' in st.session_state and st.session_state.end_time:
@@ -800,6 +809,14 @@ def home():
     
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
+    # Add automatic end time option
+    auto_end_hours = st.number_input(get_text("Automatisches Ende nach (Stunden):", "Automatic end after (hours):"), 
+                                     min_value=1, value=5, step=1, key="auto_end_hours_input")
+    
+    # Add email input for accounting
+    accounting_email = st.text_input(get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
+                                     value=st.session_state.accounting_email, key="accounting_email_input")
+    
     # File selection
     default_file = os.path.join(os.getcwd(), 'Firmen_Teams_Mitarbeiter.csv')
 
@@ -853,6 +870,9 @@ def home():
     
     if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
         if start_get_together(pin1, pin2, custom_event_name):
+            st.session_state.auto_end_hours = auto_end_hours
+            st.session_state.accounting_email = accounting_email
+            schedule_event_end(datetime.now() + timedelta(hours=auto_end_hours))
             st.session_state.page = 'select_company'
             st.rerun()
 initialize_session_state()
@@ -1404,7 +1424,7 @@ def send_csv_to_accounting():
         
         # Email configuration
         sender_email = "your_email@example.com"  # Replace with your email
-        receiver_email = "accounting@example.com"  # Replace with accounting email
+        receiver_email = st.session_state.accounting_email
         password = "your_email_password"  # Replace with your email password
 
         # Create the email
