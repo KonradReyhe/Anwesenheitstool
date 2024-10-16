@@ -959,7 +959,7 @@ def select_employee():
         admin_panel()
     
     if not st.session_state.admin_access_granted:
-        file_path = r"C:\Users\Konrad.Reyhe\Projektarbeit\Firmen_Teams_Mitarbeiter.csv"
+        file_path = "Firmen_Teams_Mitarbeiter.csv"
         if not os.path.exists(file_path):
             st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
                               f"The file '{file_path}' was not found. Please check the path and filename."))
