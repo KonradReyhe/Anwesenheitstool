@@ -264,8 +264,8 @@ def start_get_together(pin1, pin2, custom_event_name):
         st.session_state.pin = pin1
         st.session_state.get_together_started = True
         
-        # Set custom event name
-        st.session_state.custom_event_name = custom_event_name if custom_event_name else "GetTogether"
+        # Set custom event name only if it's not empty
+        st.session_state.custom_event_name = custom_event_name if custom_event_name else ""
         
         st.success(get_text("GetTogether gestartet!", "GetTogether started!"))
         return True
@@ -693,7 +693,7 @@ def select_company():
             "Visgato": os.path.join(logo_dir, "visgato.png"),
             "WIG2": os.path.join(logo_dir, "WIG2.png"),
         }
-        st.markdown(f"<div class='important-text'>{get_text('Bitte Firma auswählen:', 'Please select a company:')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='important-text'>{get_text('Bitte Firma auswählen, um Anwesenheit zu bestätigen:', 'Please select a company to confirm attendance:')}</div>", unsafe_allow_html=True)
         
         num_cols = 3  # You can adjust this to 2 for a more comfortable tablet view if needed
         company_list_with_logos = list(company_logos.keys())
@@ -813,10 +813,10 @@ def select_employee():
             st.error(f"Fehler beim Lesen der CSV-Datei: {e}")
             return
         if len(employees) == 0:
-            st.warning("Keine Mitarbeiter für das ausgewählte Team gefunden.")
+            st.warning("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.")
             return
 
-        st.markdown("<div class='sub-header'>{}</div>".format(get_text("Mitarbeiter auswählen:", "Select employee:")), unsafe_allow_html=True)
+        st.markdown("<div class='sub-header'>{}</div>".format(get_text("Mitarbeiter*innen auswählen:", "Select employees:")), unsafe_allow_html=True)
         
         # Initialize session state variables
         if 'added_employees' not in st.session_state:
@@ -982,6 +982,10 @@ def display_header():
         title = get_text("GetTogether Anwesenheitstool", "GetTogether Attendance Tool")
         st.markdown(f"<div class='title'>{title}</div>", unsafe_allow_html=True)
         
+        # Add subtitle
+        subtitle = get_text("Anwesenheit bei GetTogethers dokumentieren", "Document attendance at GetTogethers")
+        st.markdown(f"<div class='subtitle'>{subtitle}</div>", unsafe_allow_html=True)
+        
         # Banner
         script_dir = os.path.dirname(os.path.abspath(__file__))
         logo_dir = os.path.join(script_dir, "logos")
@@ -1024,7 +1028,12 @@ st.markdown("""
     color: #888888;
     opacity: 0.7;
 }
-
+.subtitle {
+    color: #0095be;
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+}
 /* Style for both buttons to ensure they are the same size */
 .stButton > button {
     width: 100% !important;
