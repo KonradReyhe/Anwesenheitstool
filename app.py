@@ -978,16 +978,27 @@ def home():
     # Event name
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
-    # File selection (simplified for tablets)
+    # File selection (allowing selection of other CSV files in the same directory)
     st.markdown(f"<div class='sub-header'>{get_text('Stammdaten-Datei:', 'Master Data File:')}</div>", unsafe_allow_html=True)
-    default_file = os.path.join(os.getcwd(), 'Firmen_Teams_Mitarbeiter.csv')
-    selected_file = st.selectbox(
-        get_text("Wählen Sie die Stammdaten-Datei:", "Select the master data file:"),
-        options=[default_file],
-        index=0,
-        key="file_selector"
-    )
-    st.session_state.selected_file = selected_file
+    
+    # Get the current directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # List all CSV files in the current directory
+    csv_files = [f for f in os.listdir(current_dir) if f.endswith('.csv')]
+    
+    if csv_files:
+        selected_file = st.selectbox(
+            get_text("Wählen Sie die Stammdaten-Datei:", "Select the master data file:"),
+            options=csv_files,
+            index=csv_files.index('Firmen_Teams_Mitarbeiter.csv') if 'Firmen_Teams_Mitarbeiter.csv' in csv_files else 0,
+            key="file_selector"
+        )
+        st.session_state.selected_file = os.path.join(current_dir, selected_file)
+    else:
+        st.error(get_text("Keine CSV-Dateien im aktuellen Verzeichnis gefunden.", 
+                          "No CSV files found in the current directory."))
+        st.session_state.selected_file = None
     
     # Optional automatic end
     st.markdown(f"<div class='sub-header'>{get_text('Optionale Einstellungen:', 'Optional Settings:')}</div>", unsafe_allow_html=True)
