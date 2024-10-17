@@ -1325,12 +1325,27 @@ def select_employee():
                          key="undo_last_selection",
                          use_container_width=True):
                 last_employee = st.session_state.added_employees.pop()
+                
+                # Remove the last added employee from the attendance data
+                st.session_state.attendance_data = [
+                    record for record in st.session_state.attendance_data 
+                    if record['Name'] != last_employee
+                ]
+                
+                # Remove the signature if it exists
+                if last_employee in st.session_state.signatures:
+                    del st.session_state.signatures[last_employee]
+                
                 undo_message = get_text(
                     f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
                     f'Employee "{last_employee}" has been removed from the attendance list.'
                 )
                 st.session_state.success_messages.append(undo_message)
                 st.session_state.last_message_time = time.time()
+                
+                # Update the auto-saved attendance list
+                auto_save_attendance()
+                
                 st.rerun()
         
         # Check if all employees have been added and return after 5 seconds
@@ -2012,12 +2027,27 @@ def select_employee():
                          key="undo_last_selection",
                          use_container_width=True):
                 last_employee = st.session_state.added_employees.pop()
+                
+                # Remove the last added employee from the attendance data
+                st.session_state.attendance_data = [
+                    record for record in st.session_state.attendance_data 
+                    if record['Name'] != last_employee
+                ]
+                
+                # Remove the signature if it exists
+                if last_employee in st.session_state.signatures:
+                    del st.session_state.signatures[last_employee]
+                
                 undo_message = get_text(
                     f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
                     f'Employee "{last_employee}" has been removed from the attendance list.'
                 )
                 st.session_state.success_messages.append(undo_message)
                 st.session_state.last_message_time = time.time()
+                
+                # Update the auto-saved attendance list
+                auto_save_attendance()
+                
                 st.rerun()
         
         # Check if all employees have been added and return after 5 seconds
