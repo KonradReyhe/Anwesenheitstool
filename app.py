@@ -244,6 +244,8 @@ def initialize_session_state():
         st.session_state.custom_employee_messages = {}
     if 'show_custom_message' not in st.session_state:
         st.session_state.show_custom_message = False
+    if 'selected_file' not in st.session_state:
+        st.session_state.selected_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Firmen_Teams_Mitarbeiter.csv')
 initialize_session_state()
 
 # Callback function für die Auswahl einer Firma
@@ -664,19 +666,31 @@ def admin_settings():
         st.info(get_text("Noch keine Teilnehmer angemeldet.", "No participants registered yet."))
 
     # 5. Master Data Management
-    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten bearbeiten:', 'Edit Master Data:')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('Stammdaten verwalten:', 'Manage Master Data:')}</div>", unsafe_allow_html=True)
     
     main_dir = os.path.dirname(os.path.abspath(__file__))
     csv_files = [f for f in os.listdir(main_dir) if f.endswith('.csv')]
     
-    selected_csv = st.selectbox(
-        get_text("Wählen Sie die zu bearbeitende Stammdaten-Datei:", "Choose the master data file to edit:"),
+    # Display current Stammdaten file
+    current_file = os.path.basename(st.session_state.selected_file)
+    st.info(get_text(f"Aktuelle Stammdaten-Datei: {current_file}", f"Current master data file: {current_file}"))
+    
+    # Option to select a different Stammdaten file
+    new_stammdaten_file = st.selectbox(
+        get_text("Wählen Sie eine neue Stammdaten-Datei:", "Choose a new master data file:"),
         options=csv_files,
-        key="admin_selected_csv"
+        index=csv_files.index(current_file) if current_file in csv_files else 0,
+        key="admin_new_stammdaten_file"
     )
     
+    if st.button(get_text("Stammdaten-Datei ändern", "Change Master Data File")):
+        st.session_state.selected_file = os.path.join(main_dir, new_stammdaten_file)
+        st.success(get_text(f"Stammdaten-Datei wurde zu '{new_stammdaten_file}' geändert.", 
+                            f"Master data file has been changed to '{new_stammdaten_file}'."))
+        st.rerun()
+    
     if st.button(get_text("Stammdaten bearbeiten", "Edit Master Data")):
-        st.session_state.selected_file = os.path.join(main_dir, selected_csv)
+        st.session_state.selected_file = os.path.join(main_dir, new_stammdaten_file)
         st.session_state.previous_page = 'admin_settings'  # Store the previous page
         st.session_state.page = 'update_master_data'
         st.rerun()
