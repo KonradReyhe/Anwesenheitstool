@@ -1446,9 +1446,34 @@ def display_header():
         banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
         if os.path.exists(banner_path):
             try:
+                # Read the image file as binary data
                 with open(banner_path, "rb") as f:
                     banner_image = f.read()
-                st.image(banner_image, use_column_width=True)
+                
+                # Encode the image data to base64
+                import base64
+                encoded_image = base64.b64encode(banner_image).decode()
+                
+                # Create HTML for the image
+                html = f"""
+                <style>
+                    .banner-container {{
+                        width: 100%;
+                        margin-bottom: 20px;
+                    }}
+                    .banner-image {{
+                        width: 100%;
+                        max-width: 100%;
+                        height: auto;
+                    }}
+                </style>
+                <div class="banner-container">
+                    <img src="data:image/png;base64,{encoded_image}" class="banner-image" alt="Health Innovators Group Leipzig Banner">
+                </div>
+                """
+                
+                # Display the HTML
+                st.markdown(html, unsafe_allow_html=True)
             except Exception as e:
                 error_message = get_text("Fehler beim Laden des Banners:", "Error loading banner:")
                 st.error(f"{error_message} {e}")
