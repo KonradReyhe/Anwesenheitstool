@@ -1016,9 +1016,9 @@ def home():
     # PIN setting
     col1, col2 = st.columns(2)
     with col1:
-        pin1 = st.text_input(get_text("Setze einen PIN:", "Set a PIN:"), type="password", key="pin1")
+        pin1 = st.text_input(get_text("Setzen Sie einen PIN:", "Set a PIN:"), type="password", key="pin1")
     with col2:
-        pin2 = st.text_input(get_text("Bestätige den PIN:", "Confirm the PIN:"), type="password", key="pin2")
+        pin2 = st.text_input(get_text("Bestätigen Sie den PIN:", "Confirm the PIN:"), type="password", key="pin2")
     
     # Event name
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
@@ -1162,7 +1162,7 @@ def select_company():
             "Visgato": os.path.join(logo_dir, "visgato.png"),
             "WIG2": os.path.join(logo_dir, "WIG2.png"),
         }
-        st.markdown(f"<div class='important-text'>{get_text('Bitte Firma auswählen, um Anwesenheit zu bestätigen:', 'Please select a company to confirm attendance:')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
         
         num_cols = 3  # You can adjust this to 2 for a more comfortable tablet view if needed
         company_list_with_logos = list(company_logos.keys())
@@ -1201,7 +1201,7 @@ def select_company():
 
 def guest_info():
     display_header()
-    st.markdown(f"<div class='sub-header'>{get_text('Bitte Ihren Namen eingeben:', 'Please enter your name:')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('Bitte geben Sie Ihren Namen ein:', 'Please enter your name:')}</div>", unsafe_allow_html=True)
     st.text_input(get_text("Name:", "Name:"), key="guest_name")
     st.text_input(get_text("Firma (optional):", "Company (optional):"), key="guest_company")
     st.button(get_text("Anwesenheit erfassen", "Record attendance"), on_click=submit_guest)
