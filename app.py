@@ -274,26 +274,40 @@ def get_text(de_text, en_text):
     return de_text if st.session_state.language == 'DE' else en_text
 
 def select_employee_callback(employee):
-    st.session_state.selected_employee = employee
-    
-    # Create attendee data
-    attendee_data = {
+    now = datetime.now()
+    new_record = {
+        'ID': f"{employee}_{now.strftime('%Y%m%d%H%M%S')}",
         'Name': employee,
         'Firma': st.session_state.selected_company,
         'Team': st.session_state.selected_team,
-        'Zeit': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'Event Name': st.session_state.custom_event_name,
+        'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
     }
-
-    if st.session_state.require_signature:
-        attendee_data['Signature'] = st.session_state.signatures.get(employee)
-        pdf_path = save_attendee_record(attendee_data)
-        attendee_data['RecordPath'] = pdf_path
-    
-    st.session_state.attendance_data.append(attendee_data)
-    
-    # Automatically save the updated attendance list
+    st.session_state.attendance_data.append(new_record)
     auto_save_attendance()
+
+def auto_save_attendance():
+    """
+    Automatically saves the current attendance list to a file.
+    This file is overwritten each time a new attendee is added.
+    The filename includes the custom event name if it was set.
+    """
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Remove the 'ID' column for the CSV
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
+        
+        # Create a filename with the event name
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        file_name = f"current_attendance_{event_name}.csv"
+        
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        
+        # Save the DataFrame to CSV, overwriting the existing file
+        df.to_csv(file_path, index=False, encoding='utf-8')
 
 def save_attendee_record(attendee_data):
     if not st.session_state.require_signature:
@@ -1113,6 +1127,7 @@ def home():
                     st.session_state.datenschutz_pin_active = True
                 st.session_state.page = 'select_company'
                 st.rerun()
+
 initialize_session_state()
 
 def check_event_end():
@@ -1269,199 +1284,221 @@ def select_employee():
         return
 
     display_header()
-    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    display_company_team_info()
     
     if st.session_state.show_admin_panel:
         admin_panel()
     
     if not st.session_state.admin_access_granted:
-        file_path = "Firmen_Teams_Mitarbeiter.csv"
-        if not os.path.exists(file_path):
-            st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
-                              f"The file '{file_path}' was not found. Please check the path and filename."))
-            return
-        try:
-            df = pd.read_csv(file_path)
-            df.columns = ['Firma', 'Team', 'Mitarbeiter']
-            employees = df[(df["Firma"] == st.session_state.selected_company) & 
-                           (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
-        except Exception as e:
-            st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
-                              f"Error reading the CSV file: {e}"))
-            return
-        if len(employees) == 0:
-            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
-                                "No employees found for the selected team."))
+        employees = get_employees_for_team()
+        if not employees:
             return
 
         st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter*innen auswählen:', 'Select employees:')}</div>", unsafe_allow_html=True)
         
-        # Initialize session state variables
-        if 'added_employees' not in st.session_state:
-            st.session_state.added_employees = []
-        if 'timer_active' not in st.session_state:
-            st.session_state.timer_active = False
-        if 'countdown_start_time' not in st.session_state:
-            st.session_state.countdown_start_time = None
-        if 'current_company_team' not in st.session_state:
-            st.session_state.current_company_team = None
-        if 'success_messages' not in st.session_state:
-            st.session_state.success_messages = []
-        if 'last_message_time' not in st.session_state:
-            st.session_state.last_message_time = None
-        if 'all_employees_added_time' not in st.session_state:
-            st.session_state.all_employees_added_time = None
+        initialize_employee_session_state()
+        check_company_team_change()
 
-        # Check if company or team has changed
-        current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
-        if st.session_state.current_company_team != current_company_team:
-            st.session_state.added_employees = []
-            st.session_state.current_company_team = current_company_team
-            st.session_state.timer_active = False
-            st.session_state.countdown_start_time = None
-            st.session_state.success_messages = []
-            st.session_state.last_message_time = None
-            st.session_state.all_employees_added_time = None
-
-        # Calculate the number of columns based on the number of employees
-        num_cols = min(3, len(employees))  # Maximum of 3 columns
-        num_rows = ceil(len(employees) / num_cols)
+        display_employee_buttons(employees)
         
-        # Create a centered container for the buttons
-        container = st.container()
-        with container:
-            for row in range(num_rows):
-                cols = st.columns(num_cols)
-                for col in range(num_cols):
-                    idx = row * num_cols + col
-                    if idx < len(employees):
-                        with cols[col]:
-                            employee = employees[idx]
-                            is_added = employee in st.session_state.added_employees
-                            button_key = f"employee_{employee}_{idx}"  # Add idx to make the key unique
-                            
-                            if st.button(employee, key=button_key, use_container_width=True, 
-                                         disabled=is_added):
-                                if st.session_state.require_signature:
-                                    st.session_state.current_employee = employee
-                                    st.session_state.show_signature_modal = True
-                                else:
-                                    select_employee_callback(employee)
-                                    if employee not in st.session_state.added_employees:
-                                        st.session_state.added_employees.append(employee)
-                                    st.session_state.timer_active = True
-                                    st.session_state.countdown_start_time = time.time()
-                                    
-                                    # Add success message
-                                    new_message = get_text(
-                                        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
-                                        f'Employee "{employee}" has been added to the attendance list.'
-                                    )
-                                    st.session_state.success_messages.append(new_message)
-                                    st.session_state.last_message_time = time.time()
-                                    
-                                    # Check if all employees have been added
-                                    if set(st.session_state.added_employees) == set(employees):
-                                        st.session_state.all_employees_added_time = time.time()
-                                    
-                                    # Show custom message if set for this employee
-                                    if employee in st.session_state.custom_employee_messages:
-                                        st.session_state.show_custom_message = True
-                                        st.session_state.current_employee = employee
-                                    
-                                    st.rerun()  # Refresh the app
-                            
-                            # Apply custom style to button if already selected
-                            if is_added:
-                                st.markdown(f"""
-                                    <style>
-                                    div.stButton > button#{button_key} {{
-                                        background-color: #ffcccb !important;
-                                        color: #000000 !important;
-                                        cursor: not-allowed !important;
-                                    }}
-                                    </style>
-                                """, unsafe_allow_html=True)
-        
-        # Signature modal
-        if st.session_state.get('show_signature_modal', False):
-            signature_modal()
-
-        # Display success messages
-        with st.container():
-            for message in st.session_state.success_messages:
-                st.success(message)
-        
-        # Remove old messages after 5 seconds
-        current_time = time.time()
-        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
-            st.session_state.success_messages = []
-            st.session_state.last_message_time = None
-        
-        # Add button to revert last selection
-        if st.session_state.added_employees:
-            if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
-                         key="undo_last_selection",
-                         use_container_width=True):
-                last_employee = st.session_state.added_employees.pop()
-                
-                # Remove the last added employee from the attendance data
-                st.session_state.attendance_data = [
-                    record for record in st.session_state.attendance_data 
-                    if record['Name'] != last_employee
-                ]
-                
-                # Remove the signature if it exists
-                if last_employee in st.session_state.signatures:
-                    del st.session_state.signatures[last_employee]
-                
-                undo_message = get_text(
-                    f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
-                    f'Employee "{last_employee}" has been removed from the attendance list.'
-                )
-                st.session_state.success_messages.append(undo_message)
-                st.session_state.last_message_time = time.time()
-                
-                # Update the auto-saved attendance list
-                auto_save_attendance()
-                
-                st.rerun()
-        
-        # Check if all employees have been added and return after 5 seconds
-        if st.session_state.all_employees_added_time:
-            time_since_all_added = current_time - st.session_state.all_employees_added_time
-            if time_since_all_added <= 5:
-                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
-                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
-            else:
-                return_to_company_selection()
-        
-        # Check if timer is active (only if not all employees have been added)
-        if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
-            # Calculate remaining time
-            elapsed_time = time.time() - st.session_state.countdown_start_time
-            remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
-            
-            # Display countdown
-            st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
-            
-            # If the countdown is finished, reset and go back to company selection
-            if remaining_time == 0:
-                return_to_company_selection()
+        handle_signature_modal()
+        display_success_messages()
+        handle_undo_last_selection()
+        check_all_employees_added(employees)
         
         # Automatically refresh the app every second to update the countdown and messages
         st_autorefresh(interval=1000, key="autorefresh")
         
-        # Zurück Button
-        if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
-            return_to_company_selection()
-
-        # Show custom message if set
-        if st.session_state.get('show_custom_message', False):
-            show_custom_employee_message(st.session_state.current_employee)
+        display_back_button()
 
     st.session_state.last_activity_time = time.time()
+
+def display_company_team_info():
+    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+
+def get_employees_for_team():
+    file_path = "Firmen_Teams_Mitarbeiter.csv"
+    if not os.path.exists(file_path):
+        st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                           f"The file '{file_path}' was not found. Please check the path and filename."))
+        return None
+    try:
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
+        employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                       (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+        if len(employees) == 0:
+            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
+                                "No employees found for the selected team."))
+            return None
+        return employees
+    except Exception as e:
+        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                          f"Error reading the CSV file: {e}"))
+        return None
+
+def initialize_employee_session_state():
+    if 'added_employees' not in st.session_state:
+        st.session_state.added_employees = []
+    if 'timer_active' not in st.session_state:
+        st.session_state.timer_active = False
+    if 'countdown_start_time' not in st.session_state:
+        st.session_state.countdown_start_time = None
+    if 'current_company_team' not in st.session_state:
+        st.session_state.current_company_team = None
+    if 'success_messages' not in st.session_state:
+        st.session_state.success_messages = []
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = None
+    if 'all_employees_added_time' not in st.session_state:
+        st.session_state.all_employees_added_time = None
+
+def check_company_team_change():
+    current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
+    if st.session_state.current_company_team != current_company_team:
+        st.session_state.added_employees = []
+        st.session_state.current_company_team = current_company_team
+        st.session_state.timer_active = False
+        st.session_state.countdown_start_time = None
+        st.session_state.success_messages = []
+        st.session_state.last_message_time = None
+        st.session_state.all_employees_added_time = None
+
+def display_employee_buttons(employees):
+    num_cols = min(3, len(employees))
+    num_rows = ceil(len(employees) / num_cols)
+    
+    container = st.container()
+    with container:
+        for row in range(num_rows):
+            cols = st.columns(num_cols)
+            for col in range(num_cols):
+                idx = row * num_cols + col
+                if idx < len(employees):
+                    with cols[col]:
+                        employee = employees[idx]
+                        is_added = employee in st.session_state.added_employees
+                        button_key = f"employee_{employee}_{idx}"
+                        
+                        if st.button(employee, key=button_key, use_container_width=True, 
+                                     disabled=is_added):
+                            handle_employee_selection(employee)
+                        
+                        if is_added:
+                            apply_selected_button_style(button_key)
+
+def handle_employee_selection(employee):
+    if st.session_state.require_signature:
+        st.session_state.current_employee = employee
+        st.session_state.show_signature_modal = True
+    else:
+        add_employee_to_attendance(employee)
+
+def add_employee_to_attendance(employee):
+    select_employee_callback(employee)
+    if employee not in st.session_state.added_employees:
+        st.session_state.added_employees.append(employee)
+    st.session_state.timer_active = True
+    st.session_state.countdown_start_time = time.time()
+    
+    add_success_message(employee)
+    
+    if employee in st.session_state.custom_employee_messages:
+        st.session_state.show_custom_message = True
+        st.session_state.current_employee = employee
+    
+    st.rerun()
+
+def add_success_message(employee):
+    new_message = get_text(
+        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+        f'Employee "{employee}" has been added to the attendance list.'
+    )
+    st.session_state.success_messages.append(new_message)
+    st.session_state.last_message_time = time.time()
+
+def apply_selected_button_style(button_key):
+    st.markdown(f"""
+        <style>
+        div.stButton > button#{button_key} {{
+            background-color: #ffcccb !important;
+            color: #000000 !important;
+            cursor: not-allowed !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+def handle_signature_modal():
+    if st.session_state.get('show_signature_modal', False):
+        signature_modal()
+
+def display_success_messages():
+    with st.container():
+        for message in st.session_state.success_messages:
+            st.success(message)
+    
+    current_time = time.time()
+    if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
+        st.session_state.success_messages = []
+        st.session_state.last_message_time = None
+
+def handle_undo_last_selection():
+    if st.session_state.added_employees:
+        if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
+                     key="undo_last_selection",
+                     use_container_width=True):
+            undo_last_employee_selection()
+
+def undo_last_employee_selection():
+    last_employee = st.session_state.added_employees.pop()
+    
+    st.session_state.attendance_data = [
+        record for record in st.session_state.attendance_data 
+        if record['Name'] != last_employee
+    ]
+    
+    if last_employee in st.session_state.signatures:
+        del st.session_state.signatures[last_employee]
+    
+    undo_message = get_text(
+        f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
+        f'Employee "{last_employee}" has been removed from the attendance list.'
+    )
+    st.session_state.success_messages.append(undo_message)
+    st.session_state.last_message_time = time.time()
+    
+    auto_save_attendance()
+    
+    st.rerun()
+
+def check_all_employees_added(employees):
+    if st.session_state.all_employees_added_time:
+        time_since_all_added = time.time() - st.session_state.all_employees_added_time
+        if time_since_all_added <= 5:
+            st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                             f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+        else:
+            return_to_company_selection()
+    elif set(st.session_state.added_employees) == set(employees):
+        st.session_state.all_employees_added_time = time.time()
+
+def display_back_button():
+    if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
+        return_to_company_selection()
+    
+    # Check if timer is active (only if not all employees have been added)
+    if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
+        # Calculate remaining time
+        elapsed_time = time.time() - st.session_state.countdown_start_time
+        remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
+        
+        # Display countdown
+        st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
+        
+        # If the countdown is finished, reset and go back to company selection
+        if remaining_time == 0:
+            return_to_company_selection()
 
 def return_to_company_selection():
     st.session_state.page = 'select_company'
@@ -1996,199 +2033,234 @@ def select_employee():
         return
 
     display_header()
-    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+    display_company_team_info()
     
     if st.session_state.show_admin_panel:
         admin_panel()
     
     if not st.session_state.admin_access_granted:
-        file_path = "Firmen_Teams_Mitarbeiter.csv"
-        if not os.path.exists(file_path):
-            st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
-                               f"The file '{file_path}' was not found. Please check the path and filename."))
-            return
-        try:
-            df = pd.read_csv(file_path)
-            df.columns = ['Firma', 'Team', 'Mitarbeiter']
-            employees = df[(df["Firma"] == st.session_state.selected_company) & 
-                           (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
-        except Exception as e:
-            st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
-                              f"Error reading the CSV file: {e}"))
-            return
-        if len(employees) == 0:
-            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
-                                "No employees found for the selected team."))
+        employees = get_employees_for_team()
+        if not employees:
             return
 
         st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter*innen auswählen:', 'Select employees:')}</div>", unsafe_allow_html=True)
         
-        # Initialize session state variables
-        if 'added_employees' not in st.session_state:
-            st.session_state.added_employees = []
-        if 'timer_active' not in st.session_state:
-            st.session_state.timer_active = False
-        if 'countdown_start_time' not in st.session_state:
-            st.session_state.countdown_start_time = None
-        if 'current_company_team' not in st.session_state:
-            st.session_state.current_company_team = None
-        if 'success_messages' not in st.session_state:
-            st.session_state.success_messages = []
-        if 'last_message_time' not in st.session_state:
-            st.session_state.last_message_time = None
-        if 'all_employees_added_time' not in st.session_state:
-            st.session_state.all_employees_added_time = None
+        initialize_employee_session_state()
+        check_company_team_change()
 
-        # Check if company or team has changed
-        current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
-        if st.session_state.current_company_team != current_company_team:
-            st.session_state.added_employees = []
-            st.session_state.current_company_team = current_company_team
-            st.session_state.timer_active = False
-            st.session_state.countdown_start_time = None
-            st.session_state.success_messages = []
-            st.session_state.last_message_time = None
-            st.session_state.all_employees_added_time = None
-
-        # Calculate the number of columns based on the number of employees
-        num_cols = min(3, len(employees))  # Maximum of 3 columns
-        num_rows = ceil(len(employees) / num_cols)
+        display_employee_buttons(employees)
         
-        # Create a centered container for the buttons
-        container = st.container()
-        with container:
-            for row in range(num_rows):
-                cols = st.columns(num_cols)
-                for col in range(num_cols):
-                    idx = row * num_cols + col
-                    if idx < len(employees):
-                        with cols[col]:
-                            employee = employees[idx]
-                            is_added = employee in st.session_state.added_employees
-                            button_key = f"employee_{employee}_{idx}"  # Add idx to make the key unique
-                            
-                            if st.button(employee, key=button_key, use_container_width=True, 
-                                         disabled=is_added):
-                                if st.session_state.require_signature:
-                                    st.session_state.current_employee = employee
-                                    st.session_state.show_signature_modal = True
-                                else:
-                                    select_employee_callback(employee)
-                                    if employee not in st.session_state.added_employees:
-                                        st.session_state.added_employees.append(employee)
-                                    st.session_state.timer_active = True
-                                    st.session_state.countdown_start_time = time.time()
-                                    
-                                    # Add success message
-                                    new_message = get_text(
-                                        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
-                                        f'Employee "{employee}" has been added to the attendance list.'
-                                    )
-                                    st.session_state.success_messages.append(new_message)
-                                    st.session_state.last_message_time = time.time()
-                                    
-                                    # Check if all employees have been added
-                                    if set(st.session_state.added_employees) == set(employees):
-                                        st.session_state.all_employees_added_time = time.time()
-                                    
-                                    # Show custom message if set for this employee
-                                    if employee in st.session_state.custom_employee_messages:
-                                        st.session_state.show_custom_message = True
-                                        st.session_state.current_employee = employee
-                                    
-                                    st.rerun()  # Refresh the app
-                            
-                            # Apply custom style to button if already selected
-                            if is_added:
-                                st.markdown(f"""
-                                    <style>
-                                    div.stButton > button#{button_key} {{
-                                        background-color: #ffcccb !important;
-                                        color: #000000 !important;
-                                        cursor: not-allowed !important;
-                                    }}
-                                    </style>
-                                """, unsafe_allow_html=True)
-        
-        # Signature modal
-        if st.session_state.get('show_signature_modal', False):
-            signature_modal()
-
-        # Display success messages
-        with st.container():
-            for message in st.session_state.success_messages:
-                st.success(message)
-        
-        # Remove old messages after 5 seconds
-        current_time = time.time()
-        if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
-            st.session_state.success_messages = []
-            st.session_state.last_message_time = None
-        
-        # Add button to revert last selection
-        if st.session_state.added_employees:
-            if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
-                         key="undo_last_selection",
-                         use_container_width=True):
-                last_employee = st.session_state.added_employees.pop()
-                
-                # Remove the last added employee from the attendance data
-                st.session_state.attendance_data = [
-                    record for record in st.session_state.attendance_data 
-                    if record['Name'] != last_employee
-                ]
-                
-                # Remove the signature if it exists
-                if last_employee in st.session_state.signatures:
-                    del st.session_state.signatures[last_employee]
-                
-                undo_message = get_text(
-                    f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
-                    f'Employee "{last_employee}" has been removed from the attendance list.'
-                )
-                st.session_state.success_messages.append(undo_message)
-                st.session_state.last_message_time = time.time()
-                
-                # Update the auto-saved attendance list
-                auto_save_attendance()
-                
-                st.rerun()
-        
-        # Check if all employees have been added and return after 5 seconds
-        if st.session_state.all_employees_added_time:
-            time_since_all_added = current_time - st.session_state.all_employees_added_time
-            if time_since_all_added <= 5:
-                st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
-                                 f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
-            else:
-                return_to_company_selection()
-        
-        # Check if timer is active (only if not all employees have been added)
-        if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
-            # Calculate remaining time
-            elapsed_time = time.time() - st.session_state.countdown_start_time
-            remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
-            
-            # Display countdown
-            st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
-            
-            # If the countdown is finished, reset and go back to company selection
-            if remaining_time == 0:
-                return_to_company_selection()
+        handle_signature_modal()
+        display_success_messages()
+        handle_undo_last_selection()
+        check_all_employees_added(employees)
         
         # Automatically refresh the app every second to update the countdown and messages
         st_autorefresh(interval=1000, key="autorefresh")
         
-        # Zurück Button
-        if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
-            return_to_company_selection()
-
-        # Show custom message if set
-        if st.session_state.get('show_custom_message', False):
-            show_custom_employee_message(st.session_state.current_employee)
+        display_back_button()
 
     st.session_state.last_activity_time = time.time()
+
+def display_company_team_info():
+    st.markdown(f"<div class='important-text'>{get_text('Firma:', 'Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='important-text'>{get_text('Team:', 'Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+
+def get_employees_for_team():
+    file_path = "Firmen_Teams_Mitarbeiter.csv"
+    if not os.path.exists(file_path):
+        st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
+                           f"The file '{file_path}' was not found. Please check the path and filename."))
+        return None
+    try:
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
+        employees = df[(df["Firma"] == st.session_state.selected_company) & 
+                       (df["Team"] == st.session_state.selected_team)]["Mitarbeiter"].tolist()
+        if len(employees) == 0:
+            st.warning(get_text("Keine Mitarbeiter*innen für das ausgewählte Team gefunden.",
+                                "No employees found for the selected team."))
+            return None
+        return employees
+    except Exception as e:
+        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                          f"Error reading the CSV file: {e}"))
+        return None
+
+def initialize_employee_session_state():
+    if 'added_employees' not in st.session_state:
+        st.session_state.added_employees = []
+    if 'timer_active' not in st.session_state:
+        st.session_state.timer_active = False
+    if 'countdown_start_time' not in st.session_state:
+        st.session_state.countdown_start_time = None
+    if 'current_company_team' not in st.session_state:
+        st.session_state.current_company_team = None
+    if 'success_messages' not in st.session_state:
+        st.session_state.success_messages = []
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = None
+    if 'all_employees_added_time' not in st.session_state:
+        st.session_state.all_employees_added_time = None
+
+def check_company_team_change():
+    current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
+    if st.session_state.current_company_team != current_company_team:
+        st.session_state.added_employees = []
+        st.session_state.current_company_team = current_company_team
+        st.session_state.timer_active = False
+        st.session_state.countdown_start_time = None
+        st.session_state.success_messages = []
+        st.session_state.last_message_time = None
+        st.session_state.all_employees_added_time = None
+
+def display_employee_buttons(employees):
+    num_cols = min(3, len(employees))
+    num_rows = ceil(len(employees) / num_cols)
+    
+    container = st.container()
+    with container:
+        for row in range(num_rows):
+            cols = st.columns(num_cols)
+            for col in range(num_cols):
+                idx = row * num_cols + col
+                if idx < len(employees):
+                    with cols[col]:
+                        employee = employees[idx]
+                        is_added = employee in st.session_state.added_employees
+                        button_key = f"employee_{employee}_{idx}"
+                        
+                        if st.button(employee, key=button_key, use_container_width=True, 
+                                     disabled=is_added):
+                            handle_employee_selection(employee)
+                        
+                        if is_added:
+                            apply_selected_button_style(button_key)
+
+def handle_employee_selection(employee):
+    if st.session_state.require_signature:
+        st.session_state.current_employee = employee
+        st.session_state.show_signature_modal = True
+    else:
+        add_employee_to_attendance(employee)
+
+def add_employee_to_attendance(employee):
+    select_employee_callback(employee)
+    if employee not in st.session_state.added_employees:
+        st.session_state.added_employees.append(employee)
+    st.session_state.timer_active = True
+    st.session_state.countdown_start_time = time.time()
+    
+    add_success_message(employee)
+    
+    if employee in st.session_state.custom_employee_messages:
+        st.session_state.show_custom_message = True
+        st.session_state.current_employee = employee
+    
+    st.rerun()
+
+def add_success_message(employee):
+    new_message = get_text(
+        f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
+        f'Employee "{employee}" has been added to the attendance list.'
+    )
+    st.session_state.success_messages.append(new_message)
+    st.session_state.last_message_time = time.time()
+
+def apply_selected_button_style(button_key):
+    st.markdown(f"""
+        <style>
+        div.stButton > button#{button_key} {{
+            background-color: #ffcccb !important;
+            color: #000000 !important;
+            cursor: not-allowed !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+def handle_signature_modal():
+    if st.session_state.get('show_signature_modal', False):
+        signature_modal()
+
+def display_success_messages():
+    with st.container():
+        for message in st.session_state.success_messages:
+            st.success(message)
+    
+    current_time = time.time()
+    if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
+        st.session_state.success_messages = []
+        st.session_state.last_message_time = None
+
+def handle_undo_last_selection():
+    if st.session_state.added_employees:
+        if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
+                     key="undo_last_selection",
+                     use_container_width=True):
+            undo_last_employee_selection()
+
+def undo_last_employee_selection():
+    last_employee = st.session_state.added_employees.pop()
+    
+    st.session_state.attendance_data = [
+        record for record in st.session_state.attendance_data 
+        if record['Name'] != last_employee
+    ]
+    
+    if last_employee in st.session_state.signatures:
+        del st.session_state.signatures[last_employee]
+    
+    undo_message = get_text(
+        f'Mitarbeiter "{last_employee}" wurde von der Anwesenheitsliste entfernt.',
+        f'Employee "{last_employee}" has been removed from the attendance list.'
+    )
+    st.session_state.success_messages.append(undo_message)
+    st.session_state.last_message_time = time.time()
+    
+    auto_save_attendance()
+    
+    st.rerun()
+
+def check_all_employees_added(employees):
+    if st.session_state.all_employees_added_time:
+        time_since_all_added = time.time() - st.session_state.all_employees_added_time
+        if time_since_all_added <= 5:
+            st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                             f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+        else:
+            return_to_company_selection()
+    elif set(st.session_state.added_employees) == set(employees):
+        st.session_state.all_employees_added_time = time.time()
+
+def display_back_button():
+    if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
+        return_to_company_selection()
+    
+    # Check if timer is active (only if not all employees have been added)
+    if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
+        # Calculate remaining time
+        elapsed_time = time.time() - st.session_state.countdown_start_time
+        remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
+        
+        # Display countdown
+        st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
+        
+        # If the countdown is finished, reset and go back to company selection
+        if remaining_time == 0:
+            return_to_company_selection()
+
+def return_to_company_selection():
+    st.session_state.page = 'select_company'
+    st.session_state.selected_company = None
+    st.session_state.selected_team = None
+    st.session_state.selected_employee = None
+    st.session_state.added_employees = []
+    st.session_state.timer_active = False
+    st.session_state.countdown_start_time = None
+    st.session_state.success_messages = []
+    st.session_state.last_message_time = None
+    st.session_state.all_employees_added_time = None
+    st.rerun()
 
 def show_custom_employee_message(employee):
     if employee in st.session_state.custom_employee_messages:
