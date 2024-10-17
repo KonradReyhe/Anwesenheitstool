@@ -1259,7 +1259,7 @@ def select_employee():
                         with cols[col]:
                             employee = employees[idx]
                             is_added = employee in st.session_state.added_employees
-                            button_key = f"employee_{employee}"
+                            button_key = f"employee_{employee}_{idx}"  # Add idx to make the key unique
                             
                             if st.button(employee, key=button_key, use_container_width=True, 
                                          disabled=is_added):
@@ -1946,7 +1946,7 @@ def select_employee():
                         with cols[col]:
                             employee = employees[idx]
                             is_added = employee in st.session_state.added_employees
-                            button_key = f"employee_{employee}"
+                            button_key = f"employee_{employee}_{idx}"  # Add idx to make the key unique
                             
                             if st.button(employee, key=button_key, use_container_width=True, 
                                          disabled=is_added):
