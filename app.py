@@ -30,9 +30,11 @@ from reportlab.lib.utils import ImageReader
 from PIL import Image
 import os
 from streamlit.runtime.scriptrunner import RerunException
+import pytz
 
 VERSION = "1.0.0"
 
+local_tz = pytz.timezone('Europe/Berlin')  # German timezone
 
 st.markdown(
     """
@@ -433,7 +435,8 @@ def go_back_to_team_from_employee():
 
 def display_countdown_timer():
     if st.session_state.end_time and st.session_state.get_together_started:
-        time_remaining = st.session_state.end_time - datetime.now()
+        now = datetime.now(local_tz)
+        time_remaining = st.session_state.end_time - now
         if time_remaining.total_seconds() > 0:
             days, remainder = divmod(time_remaining.total_seconds(), 86400)
             hours, remainder = divmod(remainder, 3600)
@@ -467,18 +470,19 @@ def display_countdown_timer():
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
-            st.experimental_rerun()
+            st.rerun()
 
 def schedule_event_end(end_time):
-    st.session_state.end_time = end_time
+    st.session_state.end_time = end_time.astimezone(local_tz)
 
 def check_event_end():
     if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
-        if datetime.now() >= st.session_state.end_time:
+        now = datetime.now(local_tz)
+        if now >= st.session_state.end_time:
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
-            st.experimental_rerun()
+            st.rerun()
 
 def cancel_scheduled_end():
     st.session_state.end_time = None
@@ -990,16 +994,32 @@ def home():
     enable_auto_end = st.checkbox(get_text("Automatisches Ende aktivieren", "Enable automatic end"), value=False, key="enable_auto_end")
     
     if enable_auto_end:
-        auto_end_hours = st.number_input(
-            get_text("Automatisches Ende nach (Stunden):", "Automatic end after (hours):"), 
-            min_value=1, value=5, step=1, key="auto_end_hours_input"
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            auto_end_hours = st.number_input(
+                get_text("Stunden:", "Hours:"), 
+                min_value=0, value=5, step=1, key="auto_end_hours_input"
+            )
+        with col2:
+            auto_end_minutes = st.selectbox(
+                get_text("Minuten:", "Minutes:"),
+                options=[0, 15, 30, 45],
+                index=0,
+                key="auto_end_minutes_input"
+            )
+        
+        now = datetime.now(local_tz)
+        end_time = now + timedelta(hours=auto_end_hours, minutes=auto_end_minutes)
+        st.write(get_text(f"Geplantes Ende: {end_time.strftime('%d.%m.%Y %H:%M')}", 
+                          f"Scheduled end: {end_time.strftime('%Y-%m-%d %H:%M')}"))
+        
         accounting_email = st.text_input(
             get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
             value=st.session_state.accounting_email, key="accounting_email_input"
         )
     else:
         auto_end_hours = None
+        auto_end_minutes = None
         accounting_email = None
     
     # Data protection PIN
@@ -1025,10 +1045,13 @@ def home():
         if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
             if start_get_together(pin1, pin2, custom_event_name):
                 st.session_state.auto_end_hours = auto_end_hours if enable_auto_end else None
+                st.session_state.auto_end_minutes = auto_end_minutes if enable_auto_end else None
                 st.session_state.accounting_email = accounting_email
                 st.session_state.require_signature = require_signature
-                if enable_auto_end and auto_end_hours:
-                    schedule_event_end(datetime.now() + timedelta(hours=auto_end_hours))
+                if enable_auto_end and auto_end_hours is not None and auto_end_minutes is not None:
+                    now = datetime.now(local_tz)
+                    end_time = now + timedelta(hours=auto_end_hours, minutes=auto_end_minutes)
+                    schedule_event_end(end_time)
                 if datenschutz_pin:
                     st.session_state.datenschutz_pin = datenschutz_pin
                     st.session_state.datenschutz_pin_active = True
@@ -1038,7 +1061,8 @@ initialize_session_state()
 
 def check_event_end():
     if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
-        if datetime.now() >= st.session_state.end_time:
+        now = datetime.now(local_tz)
+        if now >= st.session_state.end_time:
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
@@ -1573,11 +1597,12 @@ def confirm_end_get_together():
             st.error("Falscher PIN. Bitte erneut eingeben.")
 
 def schedule_event_end(end_time):
-    st.session_state.end_time = end_time
+    st.session_state.end_time = end_time.astimezone(local_tz)
 
 def check_event_end():
     if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
-        if datetime.now() >= st.session_state.end_time:
+        now = datetime.now(local_tz)
+        if now >= st.session_state.end_time:
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
@@ -1585,7 +1610,8 @@ def check_event_end():
 
 def display_countdown_timer():
     if st.session_state.end_time and st.session_state.get_together_started:
-        time_remaining = st.session_state.end_time - datetime.now()
+        now = datetime.now(local_tz)
+        time_remaining = st.session_state.end_time - now
         if time_remaining.total_seconds() > 0:
             days, remainder = divmod(time_remaining.total_seconds(), 86400)
             hours, remainder = divmod(remainder, 3600)
@@ -1901,7 +1927,7 @@ def select_employee():
         file_path = "Firmen_Teams_Mitarbeiter.csv"
         if not os.path.exists(file_path):
             st.error(get_text(f"Die Datei '{file_path}' wurde nicht gefunden. Bitte überprüfen Sie den Pfad und den Dateinamen.",
-                              f"The file '{file_path}' was not found. Please check the path and filename."))
+                               f"The file '{file_path}' was not found. Please check the path and filename."))
             return
         try:
             df = pd.read_csv(file_path)
