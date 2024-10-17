@@ -1,2 +1,4 @@
-Name,Firma,Team,Zeit,Event Name
-Morgan Davis,4K Analytics,Geschäftsführung,2024-10-17 10:35:12,
+Name,Firma,Team,Zeit,Event Name,Signature,RecordPath
+Morgan Jones,WIG2,Gesundheitsökonomie,2024-10-17 10:52:02,,signatures/Morgan_Jones.png,attendee_records/Morgan_Jones_20241017_105202.pdf
+Casey Jones,WIG2,Gesundheitsökonomie,2024-10-17 10:52:06,,signatures/Casey_Jones.png,attendee_records/Casey_Jones_20241017_105206.pdf
+Alex Martinez,WIG2,Gesundheitsökonomie,2024-10-17 10:52:10,,signatures/Alex_Martinez.png,attendee_records/Alex_Martinez_20241017_105210.pdf

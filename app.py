@@ -219,7 +219,9 @@ def initialize_session_state():
     if 'last_activity_time' not in st.session_state:
         st.session_state.last_activity_time = time.time()
     if 'auto_end_hours' not in st.session_state:
-        st.session_state.auto_end_hours = None
+        st.session_state.auto_end_hours = 5
+    if 'auto_end_minutes' not in st.session_state:
+        st.session_state.auto_end_minutes = 0
     if 'accounting_email' not in st.session_state:
         st.session_state.accounting_email = "accounting@example.com"
     if 'signatures' not in st.session_state:
@@ -529,24 +531,42 @@ def admin_settings():
         st.session_state.custom_message = custom_message
         st.success(get_text("Benutzerdefinierte Nachricht wurde aktualisiert.", "Custom message has been updated."))
 
-    # 2. Automatic End and CSV Sending
-    st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende und CSV-Versand:', 'Automatic End and CSV Sending:')}</div>", unsafe_allow_html=True)
+    # 2. Automatic End and Document Sending
+    st.markdown(f"<div class='sub-header'>{get_text('Automatisches Ende und Dokumentenversand:', 'Automatic End and Document Sending:')}</div>", unsafe_allow_html=True)
     
-    hours = st.number_input(get_text("In wie vielen Stunden soll das Event enden und die CSV versendet werden?", 
-                                     "In how many hours should the event end and send the CSV?"), 
-                            min_value=1, value=st.session_state.auto_end_hours, step=1)
-    
+    col1, col2 = st.columns(2)
+
+    with col1:
+        hours = st.number_input(
+            get_text("Stunden:", "Hours:"), 
+            min_value=0, value=st.session_state.auto_end_hours, step=1
+        )
+
+    with col2:
+        minutes = st.selectbox(
+            get_text("Minuten:", "Minutes:"),
+            options=[0, 15, 30, 45],
+            index=0
+        )
+
     accounting_email = st.text_input(get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), 
                                      value=st.session_state.accounting_email)
-    
+
     if st.button(get_text("Automatisches Ende aktualisieren", "Update Automatic End")):
+        total_minutes = hours * 60 + minutes
         st.session_state.auto_end_hours = hours
+        st.session_state.auto_end_minutes = minutes
         st.session_state.accounting_email = accounting_email
-        end_time = datetime.now() + timedelta(hours=hours)
+        end_time = datetime.now() + timedelta(minutes=total_minutes)
         st.session_state.end_time = end_time
         schedule_event_end(end_time)
-        st.success(get_text(f"Event wird in {hours} Stunden automatisch beendet und CSV an {accounting_email} versendet.", 
-                            f"Event will automatically end and send CSV to {accounting_email} in {hours} hours."))
+        
+        document_types = "CSV und PDF" if st.session_state.require_signature else "CSV"
+        success_message = get_text(
+            f"Event wird in {hours} Stunden und {minutes} Minuten automatisch beendet und {document_types}-Dokumente an {accounting_email} versendet.",
+            f"Event will automatically end and send {document_types} documents to {accounting_email} in {hours} hours and {minutes} minutes."
+        )
+        st.success(success_message)
 
     # Display current end time if set
     if 'end_time' in st.session_state and st.session_state.end_time:
@@ -1683,50 +1703,41 @@ def display_countdown_timer():
             st.session_state.page = 'home'
             st.rerun()
 
-def send_csv_to_accounting():
-    if st.session_state.attendance_data:
-        df = pd.DataFrame(st.session_state.attendance_data)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"Anwesenheit_Final_{timestamp}.csv"
-        local_data_dir = "data"
-        os.makedirs(local_data_dir, exist_ok=True)
-        file_path = os.path.join(local_data_dir, file_name)
-        df.to_csv(file_path, index=False, encoding='utf-8')
-        
-        # Email configuration
-        sender_email = "your_email@example.com"  # Replace with your email
-        receiver_email = st.session_state.accounting_email
-        password = "your_email_password"  # Replace with your email password
+def send_documents_to_accounting(file_path, file_type):
+    # Email configuration
+    sender_email = "your_email@example.com"  # Replace with your email
+    receiver_email = st.session_state.accounting_email
+    password = "your_email_password"  # Replace with your email password
 
-        # Create the email
-        message = MIMEMultipart()
-        message["From"] = sender_email
-        message["To"] = receiver_email
-        message["Subject"] = f"GetTogether Attendance List - {timestamp}"
+    # Create the email
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = f"GetTogether Attendance Documents - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
-        body = "Please find attached the attendance list for the GetTogether event."
-        message.attach(MIMEText(body, "plain"))
+    body = f"Please find attached the attendance {file_type} for the GetTogether event."
+    message.attach(MIMEText(body, "plain"))
 
-        # Attach the CSV file
-        with open(file_path, "rb") as attachment:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment.read())
-        
-        encoders.encode_base64(part)
-        part.add_header(
-            "Content-Disposition",
-            f"attachment; filename= {file_name}",
-        )
-        message.attach(part)
+    # Attach the file
+    with open(file_path, "rb") as attachment:
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(attachment.read())
+    
+    encoders.encode_base64(part)
+    part.add_header(
+        "Content-Disposition",
+        f"attachment; filename= {os.path.basename(file_path)}",
+    )
+    message.attach(part)
 
-        # Send the email
-        try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                server.login(sender_email, password)
-                server.sendmail(sender_email, receiver_email, message.as_string())
-            st.success("CSV sent to accounting successfully.")
-        except Exception as e:
-            st.error(f"Failed to send CSV to accounting: {str(e)}")
+    # Send the email
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        st.success(f"{file_type} sent to accounting successfully.")
+    except Exception as e:
+        st.error(f"Failed to send {file_type} to accounting: {str(e)}")
 
 def end_get_together():
     if st.session_state.attendance_data:
@@ -1735,14 +1746,31 @@ def end_get_together():
         local_data_dir = "data"
         os.makedirs(local_data_dir, exist_ok=True)
 
+        # Always create CSV
+        csv_file_name = f"Anwesenheit_{timestamp}.csv"
+        csv_file_path = os.path.join(local_data_dir, csv_file_name)
+        
+        df = pd.DataFrame(st.session_state.attendance_data)
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
+        df['Event Name'] = st.session_state.custom_event_name
+        df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        df['Total Attendees'] = len(df)
+        
+        df.to_csv(csv_file_path, index=False, encoding='utf-8')
+
         if st.session_state.require_signature:
-            # Create a ZIP file containing all PDFs
-            zip_file_name = f"Anwesenheit_{timestamp}.zip"
+            # Create a ZIP file containing CSV and all PDFs
+            zip_file_name = f"Anwesenheit_mit_Unterschriften_{timestamp}.zip"
             zip_file_path = os.path.join(local_data_dir, zip_file_name)
             with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+                zipf.write(csv_file_path, os.path.basename(csv_file_path))
                 for attendee in st.session_state.attendance_data:
                     if 'RecordPath' in attendee and os.path.exists(attendee['RecordPath']):
                         zipf.write(attendee['RecordPath'], os.path.basename(attendee['RecordPath']))
+            
+            # Send ZIP file to accounting
+            send_documents_to_accounting(zip_file_path, "ZIP")
             
             # Provide download button for the ZIP file
             with open(zip_file_path, "rb") as f:
@@ -1753,25 +1781,15 @@ def end_get_together():
                     mime="application/zip"
                 )
         else:
-            # If signatures were not required, create and provide the CSV as before
-            file_name = f"Anwesenheit_{timestamp}.csv"
-            file_path = os.path.join(local_data_dir, file_name)
-            
-            df = pd.DataFrame(st.session_state.attendance_data)
-            if 'ID' in df.columns:
-                df = df.drop('ID', axis=1)
-            df['Event Name'] = st.session_state.custom_event_name
-            df['Event End Time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            df['Total Attendees'] = len(df)
-            
-            df.to_csv(file_path, index=False, encoding='utf-8')
+            # Send CSV to accounting
+            send_documents_to_accounting(csv_file_path, "CSV")
             
             # Provide download button for the CSV
-            with open(file_path, "rb") as f:
+            with open(csv_file_path, "rb") as f:
                 st.download_button(
                     label=get_text("Anwesenheitsliste herunterladen", "Download Attendance List"),
                     data=f,
-                    file_name=file_name,
+                    file_name=csv_file_name,
                     mime="text/csv"
                 )
 
@@ -1782,8 +1800,8 @@ def end_get_together():
         st.session_state.get_together_started = False
         st.session_state.custom_event_name = ""
 
-        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsliste wurde gespeichert.",
-                            "GetTogether has ended and the attendance list has been saved."))
+        st.success(get_text("GetTogether wurde beendet und die Anwesenheitsdokumente wurden gespeichert und versendet.",
+                            "GetTogether has ended and the attendance documents have been saved and sent."))
         
         # Set a flag to indicate that we need to rerun
         st.session_state.trigger_rerun = True
