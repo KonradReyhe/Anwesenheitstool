@@ -750,19 +750,30 @@ def admin_settings():
                             f"Custom message for {remove_employee} has been removed."))
         st.rerun()
 
-    # 8. End GetTogether Option
+    # 8. End GetTogether Option and Accounting Email
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden und CSV an die Buchhaltung schicken:', 'End GetTogether and Send CSV to Accounting:')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden und Dokumente an die Buchhaltung schicken:', 'End GetTogether and Send Documents to Accounting:')}</div>", unsafe_allow_html=True)
     
-    end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_pin")
+    # Add option to update accounting email
+    current_accounting_email = st.session_state.get('accounting_email', '')
+    new_accounting_email = st.text_input(
+        get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"),
+        value=current_accounting_email,
+        key="new_accounting_email_input"  # Add this unique key
+    )
+    if st.button(get_text("E-Mail-Adresse aktualisieren", "Update Email Address")):
+        st.session_state.accounting_email = new_accounting_email
+        st.success(get_text("E-Mail-Adresse für Buchhaltung wurde aktualisiert.", "Accounting email address has been updated."))
+    
+    end_pin = st.text_input(get_text("PIN eingeben zum Beenden des GetTogethers:", "Enter PIN to end the GetTogether:"), type="password", key="end_gettogether_pin")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button(get_text("GetTogether beenden", "End GetTogether"), key="end_gettogether_button", use_container_width=True):
             if end_pin == st.session_state.pin:
                 if end_get_together():
-                    st.success(get_text("GetTogether wurde beendet. Die Anwesenheitsliste wurde gespeichert und an die Buchhaltung gesendet.",
-                                        "GetTogether has been ended. The attendance list has been saved and sent to accounting."))
+                    st.success(get_text("GetTogether wurde beendet. Die Anwesenheitsdokumente wurden gespeichert und an die Buchhaltung gesendet.",
+                                        "GetTogether has been ended. The attendance documents have been saved and sent to accounting."))
                     time.sleep(2)
                     st.session_state.page = 'home'
                     st.rerun()
