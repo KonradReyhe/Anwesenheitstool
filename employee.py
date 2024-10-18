@@ -16,7 +16,8 @@ from ui_components import (
     handle_signature_modal,
     display_success_messages,
     handle_undo_last_selection,
-    apply_selected_button_style
+    apply_selected_button_style,
+    display_employee_buttons
 )
 from auth import check_datenschutz_pin
 from timer import display_back_button, check_timer, start_timer
@@ -139,3 +140,4 @@ def add_employee_to_attendance(employee):
         st.session_state.current_employee = employee
     
     st.rerun()        
+

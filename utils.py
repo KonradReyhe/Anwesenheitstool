@@ -1,4 +1,3 @@
-#utils.py
 import streamlit as st
 import zipfile
 import os
@@ -7,16 +6,13 @@ import pandas as pd
 import base64
 import io
 from PIL import Image
-import time  # Add this import
+import time
+import pytz
 from session_state import initialize_session_state
 from pdf_utils import generate_pdf
-from email_utils import send_email, send_documents_to_accounting
-import pytz
+from text_utils import get_text
 
 local_tz = pytz.timezone('Europe/Berlin')
-
-def get_text(de_text, en_text):
-    return de_text if st.session_state.language == 'DE' else en_text
 
 def auto_save_attendance():
     if st.session_state.attendance_data:

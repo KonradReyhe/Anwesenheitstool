@@ -1,4 +1,3 @@
-#session_state.py
 import streamlit as st
 import os
 import time
@@ -52,6 +51,8 @@ def initialize_session_state():
         st.session_state.all_employees_added_time = None
     if 'custom_employee_messages' not in st.session_state:
         st.session_state.custom_employee_messages = {}
+    if 'trigger_rerun' not in st.session_state:
+        st.session_state.trigger_rerun = False
 
 def initialize_employee_session_state():
     if 'current_company_team' not in st.session_state:

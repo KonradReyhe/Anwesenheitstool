@@ -1,4 +1,3 @@
-#pdf_utils.py
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader

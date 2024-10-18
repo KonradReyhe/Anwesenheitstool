@@ -1,4 +1,3 @@
-#timer.py
 import streamlit as st
 import time
 from utils import get_text
@@ -17,3 +16,4 @@ def check_timer():
             st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
         else:
             return_to_company_selection()
+

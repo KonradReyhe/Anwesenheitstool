@@ -1,4 +1,3 @@
-#styles.py
 import streamlit as st
 
 VERSION = "1.0.0"

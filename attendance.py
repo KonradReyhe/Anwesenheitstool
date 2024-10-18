@@ -1,10 +1,6 @@
-# attendance.py
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import pytz
-import time
 import os
 import zipfile
 import io
@@ -13,6 +9,9 @@ from pdf_utils import generate_pdf
 from navigation import return_to_company_selection
 from ui_components import show_custom_employee_message
 from timer import start_timer
+import time
+from shared_functions import get_companies, get_teams_for_company, undo_last_employee_selection
+from employee import select_employee_callback
 
 def save_attendance():
     if st.session_state.attendance_data:
@@ -57,26 +56,19 @@ def check_company_team_change():
         st.session_state.all_employees_added_time = None
 
 def add_employee_to_attendance(employee):
-    now = datetime.now()
-    new_record = {
-        'ID': f"{employee}_{now.strftime('%Y%m%d%H%M%S')}",
-        'Name': employee,
-        'Firma': st.session_state.selected_company,
-        'Team': st.session_state.selected_team,
-        'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.session_state.attendance_data.append(new_record)
-    st.session_state.added_employees.append(employee)
-    auto_save_attendance()
+    select_employee_callback(employee)
+    if employee not in st.session_state.added_employees:
+        st.session_state.added_employees.append(employee)
+    st.session_state.timer_active = True
+    st.session_state.countdown_start_time = time.time()
+    
     add_success_message(employee)
     
-    if st.session_state.require_signature:
-        st.session_state.show_signature_modal = True
-    
     if employee in st.session_state.custom_employee_messages:
-        show_custom_employee_message(employee)
+        st.session_state.show_custom_message = True
+        st.session_state.current_employee = employee
     
-    start_timer()
+    st.rerun()
 
 def undo_last_employee_selection():
     if st.session_state.added_employees:
@@ -100,6 +92,25 @@ def undo_last_employee_selection():
         auto_save_attendance()
         
         st.experimental_rerun()
+
+def auto_save_attendance():
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        
+        # Remove the 'ID' column for the CSV
+        if 'ID' in df.columns:
+            df = df.drop('ID', axis=1)
+        
+        # Create a filename with the event name
+        event_name = st.session_state.custom_event_name.replace(" ", "_")
+        file_name = f"current_attendance_{event_name}.csv"
+        
+        local_data_dir = "data"
+        os.makedirs(local_data_dir, exist_ok=True)
+        file_path = os.path.join(local_data_dir, file_name)
+        
+        # Save the DataFrame to CSV, overwriting the existing file
+        df.to_csv(file_path, index=False, encoding='utf-8')
 
 def submit_guest():
     if st.session_state.guest_name and st.session_state.guest_company:
@@ -140,14 +151,6 @@ def get_teams_for_company(company, file_path="Firmen_Teams_Mitarbeiter.csv"):
     df = pd.read_csv(file_path)
     teams = df[df['Firma'] == company]['Team'].unique().tolist()
     return teams
-
-def get_employees_for_team():
-    company = st.session_state.selected_company
-    team = st.session_state.selected_team
-    file_path = "Firmen_Teams_Mitarbeiter.csv"
-    df = pd.read_csv(file_path)
-    employees = df[(df['Firma'] == company) & (df['Team'] == team)]['Mitarbeiter'].tolist()
-    return employees
 
 def guest_info():
     st.title(get_text("Gast-Information", "Guest Information"))
