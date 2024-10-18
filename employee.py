@@ -108,3 +108,34 @@ def get_all_employees():
         st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
                           f"Error reading the CSV file: {e}"))
         return []
+
+def handle_employee_selection(employee):
+    if employee not in st.session_state.added_employees:
+        add_employee_to_attendance(employee)
+        st.session_state.current_employee = employee
+        
+        if st.session_state.require_signature:
+            st.session_state.show_signature_modal = True
+        else:
+            add_success_message(employee)
+        
+        if employee in st.session_state.custom_employee_messages:
+            show_custom_employee_message(employee)
+        
+        start_timer()
+        st.rerun()        
+
+def add_employee_to_attendance(employee):
+    select_employee_callback(employee)
+    if employee not in st.session_state.added_employees:
+        st.session_state.added_employees.append(employee)
+    st.session_state.timer_active = True
+    st.session_state.countdown_start_time = time.time()
+    
+    add_success_message(employee)
+    
+    if employee in st.session_state.custom_employee_messages:
+        st.session_state.show_custom_message = True
+        st.session_state.current_employee = employee
+    
+    st.rerun()        
