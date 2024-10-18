@@ -62,3 +62,9 @@ def initialize_employee_session_state():
         st.session_state.countdown_start_time = None
     if 'all_employees_added_time' not in st.session_state:
         st.session_state.all_employees_added_time = None
+
+
+def reset_session_state():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    initialize_session_state()

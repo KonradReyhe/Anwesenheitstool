@@ -96,3 +96,15 @@ def select_employee_callback(employee):
     }
     st.session_state.attendance_data.append(new_record)
     auto_save_attendance()
+
+def get_all_employees():
+    file_path = "Firmen_Teams_Mitarbeiter.csv"
+    try:
+        df = pd.read_csv(file_path)
+        df.columns = ['Firma', 'Team', 'Mitarbeiter']
+        all_employees = df['Mitarbeiter'].unique().tolist()
+        return sorted(all_employees)
+    except Exception as e:
+        st.error(get_text(f"Fehler beim Lesen der CSV-Datei: {e}",
+                          f"Error reading the CSV file: {e}"))
+        return []
