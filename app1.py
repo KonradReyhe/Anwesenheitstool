@@ -131,6 +131,8 @@ def main():
     navigate()
 
 if __name__ == "__main__":
+    initialize_session_state()
+    apply_custom_styles()
     main()
 
 # Initialize session state at the end of the file
