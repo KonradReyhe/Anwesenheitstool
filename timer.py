@@ -17,3 +17,13 @@ def check_timer():
             st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
         else:
             return_to_company_selection()
+
+def display_back_button():
+    if st.button(get_text("Zurück", "Back"), key="back_button"):
+        st.session_state.page = 'home'
+        st.experimental_rerun()
+
+def reset_timer_state():
+    st.session_state.timer_active = False
+    st.session_state.countdown_start_time = None
+    st.session_state.current_company_team = None

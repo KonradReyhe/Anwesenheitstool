@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email import encoders
 import smtplib
 import streamlit as st
-from utils import get_text
+from text_utils import get_text
 
 def send_documents_to_accounting(zip_file_path):
     smtp_server = os.getenv('SMTP_SERVER')
@@ -45,3 +45,12 @@ def send_documents_to_accounting(zip_file_path):
     except Exception as e:
         st.error(f"Failed to send email: {e}")
         return False
+
+def show_custom_employee_message(employee):
+    if employee in st.session_state.custom_employee_messages:
+        st.markdown("### " + get_text("Wichtige Mitteilung", "Important Notice"))
+        st.write(st.session_state.custom_employee_messages[employee])
+        if st.button(get_text("Schließen", "Close"), key="close_custom_message"):
+            st.session_state.show_custom_message = False
+            st.rerun()
+

@@ -1,7 +1,10 @@
 # admin.py
 import streamlit as st
 import pandas as pd
-from utils import get_text, toggle_language, end_get_together, save_attendance
+from language_utils import toggle_language
+from text_utils import get_text
+
+from utils import end_get_together, save_attendance
 from attendance import delete_attendance_record, save_current_attendance
 from session_state import initialize_session_state
 

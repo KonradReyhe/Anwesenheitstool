@@ -1,5 +1,6 @@
 # attendance.py
 
+print("Loading attendance.py")
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -8,33 +9,16 @@ import time
 import os
 import zipfile
 import io
-from utils import get_text, auto_save_attendance, add_success_message
+from utils import get_text, add_success_message, auto_save_attendance
 from pdf_utils import generate_pdf
 from navigation import return_to_company_selection
-from ui_components import show_custom_employee_message
+from message_utils import show_custom_employee_message
 from timer import start_timer
+from data_utils import get_companies, get_teams_for_company, get_employees_for_team
+from save_operations import save_attendance
 
-def save_attendance():
-    if st.session_state.attendance_data:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        zip_file_name = f"Anwesenheit_{timestamp}.zip"
-        
-        with zipfile.ZipFile(zip_file_name, 'w') as zipf:
-            # Add CSV file
-            csv_data = pd.DataFrame(st.session_state.attendance_data)
-            csv_buffer = io.StringIO()
-            csv_data.to_csv(csv_buffer, index=False)
-            zipf.writestr(f"Anwesenheit_{timestamp}.csv", csv_buffer.getvalue())
-            
-            # Add PDF file if signatures are required
-            if st.session_state.require_signature:
-                pdf_buffer = io.BytesIO()
-                generate_pdf(st.session_state.attendance_data, pdf_buffer)
-                zipf.writestr(f"Anwesenheit_{timestamp}.pdf", pdf_buffer.getvalue())
-        
-        return zip_file_name
-    return None
 
+print("Defining get_companies function")
 def delete_attendance_record():
     st.session_state.attendance_data = []
     st.success(get_text("Anwesenheitsdaten wurden gelöscht.", "Attendance data has been deleted."))
@@ -47,7 +31,7 @@ def save_current_attendance():
 
 def check_company_team_change():
     current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
-    if st.session_state.get('current_company_team') != current_company_team:
+    if st.session_state.current_company_team != current_company_team:
         st.session_state.added_employees = []
         st.session_state.current_company_team = current_company_team
         st.session_state.timer_active = False
@@ -120,34 +104,10 @@ def submit_guest():
     else:
         st.error(get_text("Bitte füllen Sie alle Felder aus.", "Please fill in all fields."))
 
-def check_all_employees_added(employees):
-    if st.session_state.all_employees_added_time:
-        time_since_all_added = time.time() - st.session_state.all_employees_added_time
-        if time_since_all_added <= 5:
-            st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
-                             f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
-        else:
-            return_to_company_selection()
-    elif set(st.session_state.added_employees) == set(employees):
-        st.session_state.all_employees_added_time = time.time()
-
-def get_companies(file_path="Firmen_Teams_Mitarbeiter.csv"):
-    df = pd.read_csv(file_path)
-    companies = df['Firma'].unique().tolist()
-    return companies
-
 def get_teams_for_company(company, file_path="Firmen_Teams_Mitarbeiter.csv"):
     df = pd.read_csv(file_path)
     teams = df[df['Firma'] == company]['Team'].unique().tolist()
     return teams
-
-def get_employees_for_team():
-    company = st.session_state.selected_company
-    team = st.session_state.selected_team
-    file_path = "Firmen_Teams_Mitarbeiter.csv"
-    df = pd.read_csv(file_path)
-    employees = df[(df['Firma'] == company) & (df['Team'] == team)]['Mitarbeiter'].tolist()
-    return employees
 
 def guest_info():
     st.title(get_text("Gast-Information", "Guest Information"))
@@ -155,3 +115,5 @@ def guest_info():
     st.session_state.guest_company = st.text_input(get_text("Firma des Gastes", "Guest Company"))
     if st.button(get_text("Bestätigen", "Confirm")):
         submit_guest()
+
+

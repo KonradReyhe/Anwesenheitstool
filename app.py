@@ -1354,17 +1354,6 @@ def initialize_employee_session_state():
     if 'all_employees_added_time' not in st.session_state:
         st.session_state.all_employees_added_time = None
 
-def check_company_team_change():
-    current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
-    if st.session_state.current_company_team != current_company_team:
-        st.session_state.added_employees = []
-        st.session_state.current_company_team = current_company_team
-        st.session_state.timer_active = False
-        st.session_state.countdown_start_time = None
-        st.session_state.success_messages = []
-        st.session_state.last_message_time = None
-        st.session_state.all_employees_added_time = None
-
 def display_employee_buttons(employees):
     num_cols = min(3, len(employees))
     num_rows = ceil(len(employees) / num_cols)

@@ -7,16 +7,20 @@ import pandas as pd
 import base64
 import io
 from PIL import Image
-import time  # Add this import
+import time
 from session_state import initialize_session_state
 from pdf_utils import generate_pdf
-from email_utils import send_email, send_documents_to_accounting
 import pytz
+from save_operations import save_attendance
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+from text_utils import get_text
+from email_utils import send_documents_to_accounting
 
 local_tz = pytz.timezone('Europe/Berlin')
-
-def get_text(de_text, en_text):
-    return de_text if st.session_state.language == 'DE' else en_text
 
 def auto_save_attendance():
     if st.session_state.attendance_data:
@@ -49,6 +53,8 @@ def end_get_together():
     st.session_state.page = 'home'
     st.success(get_text("GetTogether wurde beendet.", "GetTogether has been ended."))
     st.experimental_rerun()
+
+
 
 def add_success_message(employee):
     new_message = get_text(
@@ -122,3 +128,11 @@ def save_attendance():
 
 def update_last_activity():
     st.session_state.last_activity_time = time.time()
+
+def show_custom_employee_message(employee):
+    if employee in st.session_state.custom_employee_messages:
+        st.markdown("### " + get_text("Wichtige Mitteilung", "Important Notice"))
+        st.write(st.session_state.custom_employee_messages[employee])
+        if st.button(get_text("Schließen", "Close"), key="close_custom_message"):
+            st.session_state.show_custom_message = False
+            st.rerun()

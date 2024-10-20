@@ -3,7 +3,7 @@
 import streamlit as st
 import time
 from config import INACTIVITY_TIMEOUT
-from utils import get_text
+from text_utils import get_text
 
 def start_get_together(pin1, pin2, custom_event_name):
     if pin1 and pin2 and pin1 == pin2:
@@ -35,16 +35,14 @@ def check_datenschutz_pin():
     return True
 
 def datenschutz_pin_page():
-    st.title(get_text("Datenschutz-PIN erforderlich", "Data Protection PIN Required"))
-    entered_pin = st.text_input(get_text("PIN eingeben", "Enter PIN"), type="password")
-    
-    if st.button(get_text("Entsperren", "Unlock")):
+    st.markdown(f"<div class='sub-header'>{get_text('Datenschutz-PIN eingeben:', 'Enter Data Protection PIN:')}</div>", unsafe_allow_html=True)
+    entered_pin = st.text_input(get_text("PIN:", "PIN:"), type="password")
+    if st.button(get_text("Bestätigen", "Confirm")):
         if entered_pin == st.session_state.datenschutz_pin:
             st.session_state.locked = False
             st.session_state.last_activity_time = time.time()
-            st.success(get_text("App entsperrt.", "App unlocked."))
-            st.experimental_rerun()
+            st.success(get_text("PIN korrekt. Zugriff gewährt.", "PIN correct. Access granted."))
             return True
         else:
-            st.error(get_text("Falscher PIN.", "Incorrect PIN."))
+            st.error(get_text("Falsche PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
     return False
