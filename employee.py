@@ -28,38 +28,43 @@ from admin import admin_panel
 from math import ceil
 
 def select_employee():
-    if not check_datenschutz_pin():
+    if not check_employee_pin():
         return
-    if not check_datenschutz_pin():
-        display_header()
-        display_company_team_info()
-        
-        if st.session_state.show_admin_panel:
-            admin_panel()
-        
-        if not st.session_state.admin_access_granted:
-            employees = get_employees_for_team(st.session_state.selected_company, st.session_state.selected_team)
-            if not employees:
-                return
-            if not employees:
-                st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter*innen auswählen:', 'Select employees:')}</div>", unsafe_allow_html=True)
-                
-                initialize_employee_session_state()
-                check_company_team_change()
-                initialize_employee_session_state()
-                display_employee_buttons(employees)
-                
-                handle_signature_modal()
-                display_success_messages()
-                handle_undo_last_selection()
-                check_all_employees_added(employees)
-                
-                # Automatically refresh the app every second to update the countdown and messages
-                st_autorefresh(interval=1000, key="autorefresh")
-                
-                display_back_button()
-                display_back_button()
-    st.session_state.last_activity_time = time.time()
+
+    display_header()
+    display_company_team_info()
+    
+    employees = get_employees_for_team(st.session_state.selected_company, st.session_state.selected_team)
+    if not employees:
+        st.warning(get_text("Keine Mitarbeiter für dieses Team gefunden.", "No employees found for this team."))
+        return
+
+    st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter auswählen:', 'Select employee:')}</div>", unsafe_allow_html=True)
+    
+    num_columns = 3
+    columns = st.columns(num_columns)
+    
+    for i, employee in enumerate(employees):
+        with columns[i % num_columns]:
+            if st.button(employee, key=f"employee_{employee}", use_container_width=True):
+                add_employee(employee)
+                st.success(get_text(f"Sie haben sich erfolgreich als {employee} angemeldet.", f"You have successfully logged in as {employee}."))
+                st.session_state.page = 'select_company'
+                st.rerun()
+
+    display_back_button()
+
+def check_employee_pin():
+    if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
+        pin = st.text_input(get_text("PIN eingeben:", "Enter PIN:"), type="password")
+        if st.button(get_text("Bestätigen", "Confirm")):
+            if pin == st.session_state.employee_pin:
+                return True
+            else:
+                st.error(get_text("Falsche PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
+                return False
+    else:
+        return True
 
 def display_employee_buttons(employees):
     num_cols = min(3, len(employees))
@@ -114,5 +119,19 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
+
+def add_employee(employee):
+    add_employee_to_attendance(employee)
+    st.session_state.current_employee = employee
+    
+    if st.session_state.require_signature:
+        st.session_state.show_signature_modal = True
+    else:
+        add_success_message(employee)
+    
+    if employee in st.session_state.custom_employee_messages:
+        show_custom_employee_message(employee)
+    
+    start_timer()
 
 __all__ = ['select_employee']

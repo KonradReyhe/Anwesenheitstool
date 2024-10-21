@@ -82,6 +82,10 @@ def apply_custom_styles():
         margin: 0 auto 15px;
         pointer-events: none;
     }
+    .company-divider {
+        border-top: 1px solid #e0e0e0;
+        margin: 20px 0;
+    }
     /* Custom message styles */
     .custom-message {
         padding: 15px;
@@ -157,4 +161,7 @@ def apply_custom_styles():
     st.markdown(f"<div class='version-number'>v{VERSION}</div>", unsafe_allow_html=True)
 
 # You can add more custom style functions here if needed
+
+
+
 

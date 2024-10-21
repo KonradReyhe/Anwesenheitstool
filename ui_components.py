@@ -18,6 +18,7 @@ from auth import check_datenschutz_pin
 from admin import admin_panel
 from navigation import return_to_company_selection, go_back_to_team_from_employee, select_company_callback, go_back_to_company
 import pytz
+from io import BytesIO
 
 VERSION = "1.0.0"
 
@@ -203,78 +204,58 @@ def handle_signature_modal():
         signature_modal()
 
 def select_company():
-    if not check_datenschutz_pin():
-        return
-
     display_header()
     
-    display_countdown_timer()
+    st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
     
-    if st.session_state.get('custom_message'):
+    companies = get_companies()
+    num_cols = 3
+    regular_companies = [c for c in companies if c not in ["iLOC", "Externe Partner", get_text("Gast", "Guest")]]
+    special_companies = ["iLOC", "Externe Partner", get_text("Gast", "Guest")]
+    
+    # Display regular companies
+    company_rows = [regular_companies[i:i + num_cols] for i in range(0, len(regular_companies), num_cols)]
+    for row in company_rows:
+        cols = st.columns(num_cols)
+        for col, company in zip(cols, row):
+            with col:
+                display_company_button(company)
+    
+    # Display special companies at the bottom
+    st.markdown("<div class='company-divider'></div>", unsafe_allow_html=True)
+    special_cols = st.columns(3)
+    for i, company in enumerate(special_companies):
+        with special_cols[i]:
+            display_company_button(company)
+    
+    display_back_button()
+
+def display_company_button(company):
+    logo_path = f"logos/{company.lower().replace(' ', '_')}.png"
+    if os.path.exists(logo_path):
+        logo_base64 = base64.b64encode(open(logo_path, 'rb').read()).decode()
         st.markdown(
             f"""
-            <div class='custom-message'>
-                {st.session_state.custom_message}
+            <div class="company-container">
+                <img class="company-logo" src="data:image/png;base64,{logo_base64}" alt="{company}" />
             </div>
             """, 
             unsafe_allow_html=True
         )
-    
-    st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
-    
-    if st.session_state.show_admin_panel:
-        admin_panel()
-    
-    if not st.session_state.admin_access_granted:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        logo_dir = os.path.join(script_dir, "logos")
-        company_logos = {
-            "4K Analytics": os.path.join(logo_dir, "4K_ANALYTICS.png"),
-            "CLINIBOTS": os.path.join(logo_dir, "CLINIBOTS.png"),
-            "GREENBAY research": os.path.join(logo_dir, "GREENBAY_research.png"),
-            "InfAI Management": os.path.join(logo_dir, "InfAI_Management.png"),
-            "iNNO3": os.path.join(logo_dir, "iNNO3.png"),
-            "Lieblingsimmobilien": os.path.join(logo_dir, "Lieblingsimmobilien.png"),
-            "Termingo": os.path.join(logo_dir, "TERMINGO.png"),
-            "Visgato": os.path.join(logo_dir, "visgato.png"),
-            "WIG2": os.path.join(logo_dir, "WIG2.png"),
-        }
-        st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
-        
-        num_cols = 3
-        company_list_with_logos = list(company_logos.keys())
-        companies_per_row = [company_list_with_logos[i:i + num_cols] for i in range(0, len(company_list_with_logos), num_cols)]
-        
-        for row in companies_per_row:
-            cols = st.columns(num_cols)
-            for col, company in zip(cols, row):
-                with col:
-                    if company in company_logos:
-                        logo_path = company_logos.get(company)
-                        if logo_path and os.path.exists(logo_path):
-                            logo_base64 = base64.b64encode(open(logo_path, 'rb').read()).decode()
-                            st.markdown(
-                                f"""
-                                <div class="company-container">
-                                    <img class="company-logo" src="data:image/png;base64,{logo_base64}" alt="{company}" />
-                                </div>
-                                """, 
-                                unsafe_allow_html=True
-                            )
-                    st.button(company, key=company, on_click=select_company_callback, args=(company,), use_container_width=True)
+    st.button(company, key=company, on_click=select_company_callback, args=(company,), use_container_width=True)
 
-        st.markdown("<hr style='border-top: 2px solid #f9c61e; margin: 30px 0;'>", unsafe_allow_html=True)
-        st.markdown(f"<div class='important-text'>{get_text('Weitere Auswahl:', 'Additional options:')}</div>", unsafe_allow_html=True)
-        cols = st.columns(3)
-        with cols[0]:
-            st.button("iLOC", key="iLOC", on_click=select_company_callback, args=("iLOC",), use_container_width=True)
-        with cols[1]:
-            external_partners = get_text("Externe Partner", "External Partners")
-            st.button(external_partners, key="Externe Partner", on_click=select_company_callback, args=(external_partners,), use_container_width=True)
-        with cols[2]:
-            guest = get_text("Gast", "Guest")
-            st.button(guest, key="Guest", on_click=select_company_callback, args=(guest,), use_container_width=True)
-    st.session_state.last_activity_time = time.time()
+def image_to_base64(image):
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+def select_company_callback(company):
+    st.session_state.selected_company = company
+    if company == get_text("Gast", "Guest"):
+        st.session_state.page = 'guest_info'
+    else:
+        st.session_state.page = 'select_team'
+    st.rerun()
 
 def display_company_team_info():
     if st.session_state.selected_company:
@@ -347,12 +328,6 @@ def display_countdown_timer():
             st.session_state.page = 'home'
             st.rerun()
 
-
-
-
-
-
-
 def display_back_button():
     if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
         go_back_to_company()
@@ -373,6 +348,15 @@ def display_back_button():
 __all__ = ['select_company', 'select_team', 'display_company_team_info', 'display_employee_buttons',
            'handle_signature_modal', 'display_success_messages', 'handle_undo_last_selection',
            'toggle_language', 'display_header', 'signature_modal', 'guest_info', 'display_back_button']
+
+def display_language_toggle():
+    # Implement language toggle functionality here
+    pass
+
+def display_version():
+    # Implement version display functionality here
+    st.text(f"Version: {VERSION}")  # Make sure to import VERSION from the appropriate module
+
 
 
 

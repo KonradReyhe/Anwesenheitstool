@@ -17,7 +17,8 @@ from data_utils import get_companies, get_teams_for_company, get_employees_for_t
 from ui_components import (
     select_company, select_team, display_company_team_info, display_employee_buttons,
     handle_signature_modal, display_success_messages, handle_undo_last_selection,
-    toggle_language, display_header, signature_modal, guest_info, display_back_button
+    toggle_language, display_header, signature_modal, guest_info, display_back_button,
+    select_team_callback
 )
 from admin import admin_panel
 from utils import (
@@ -47,64 +48,18 @@ def home():
     
     custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
     
-    csv_files = [f for f in os.listdir() if f.endswith('.csv')]
-    default_file = "Firmen_Teams_Mitarbeiter.csv"
-    if default_file not in csv_files:
-        csv_files.insert(0, default_file)
-    
-    selected_file = st.selectbox(
-        get_text("Stammdaten-Datei auswählen:", "Select master data file:"),
-        options=csv_files,
-        index=csv_files.index(default_file) if default_file in csv_files else 0,
-        key="selected_file_input"
-    )
-    st.session_state.selected_file = selected_file
-
-    enable_auto_end = st.checkbox(get_text("Automatisches Ende aktivieren", "Enable automatic end"), key="enable_auto_end_input")
-    
-    if enable_auto_end:
-        col1, col2 = st.columns(2)
-        with col1:
-            auto_end_hours = st.number_input(get_text("Stunden:", "Hours:"), min_value=0, max_value=23, value=1, step=1, key="auto_end_hours_input")
-        with col2:
-            auto_end_minutes = st.selectbox(get_text("Minuten:", "Minutes:"), options=[0, 15, 30, 45], index=0, key="auto_end_minutes_input")
-        
-        now = datetime.now(local_tz)
-        end_time = now + timedelta(hours=auto_end_hours, minutes=auto_end_minutes)
-        st.write(get_text(f"Geplantes Ende: {end_time.strftime('%d.%m.%Y %H:%M')}", f"Scheduled end: {end_time.strftime('%Y-%m-%d %H:%M')}"))
-        
-        accounting_email = st.text_input(get_text("E-Mail-Adresse für Buchhaltung:", "Email address for accounting:"), value=st.session_state.get('accounting_email', ''), key="accounting_email_input")
-    else:
-        auto_end_hours = None
-        auto_end_minutes = None
-        accounting_email = None
-
     datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
     
     require_signature = st.checkbox(get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), value=st.session_state.get('require_signature', False))
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button(get_text("Stammdaten aktualisieren", "Update Master Data")):
-            st.session_state.page = 'update_master_data'
+    if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
+        if start_get_together(pin1, pin2, custom_event_name):
+            st.session_state.require_signature = require_signature
+            if datenschutz_pin:
+                st.session_state.datenschutz_pin = datenschutz_pin
+                st.session_state.datenschutz_pin_active = True
+            st.session_state.page = 'select_company'
             st.rerun()
-    
-    with col2:
-        if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
-            if start_get_together(pin1, pin2, custom_event_name):
-                st.session_state.auto_end_hours = auto_end_hours if enable_auto_end else None
-                st.session_state.auto_end_minutes = auto_end_minutes if enable_auto_end else None
-                st.session_state.accounting_email = accounting_email
-                st.session_state.require_signature = require_signature
-                if enable_auto_end and auto_end_hours is not None and auto_end_minutes is not None:
-                    now = datetime.now(local_tz)
-                    end_time = now + timedelta(hours=auto_end_hours, minutes=auto_end_minutes)
-                    schedule_event_end(end_time)
-                if datenschutz_pin:
-                    st.session_state.datenschutz_pin = datenschutz_pin
-                    st.session_state.datenschutz_pin_active = True
-                st.session_state.page = 'select_company'
-                st.rerun()
 
 def navigate():
     if st.session_state.page == 'home':
@@ -266,3 +221,4 @@ def select_team_callback(team):
     st.session_state.selected_team = team
     st.session_state.page = 'select_employee'
     st.rerun()
+

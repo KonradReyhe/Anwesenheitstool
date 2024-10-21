@@ -42,8 +42,10 @@ def check_company_team_change():
 
 def add_employee_to_attendance(employee):
     now = datetime.now()
+    employee_initials = ''.join([name[0].upper() for name in employee.split()])[:3]
+    short_id = f"{employee_initials}{now.strftime('%H%M%S')}"
     new_record = {
-        'ID': f"{employee}_{now.strftime('%Y%m%d%H%M%S')}",
+        'ID': short_id,
         'Name': employee,
         'Firma': st.session_state.selected_company,
         'Team': st.session_state.selected_team,
@@ -88,8 +90,10 @@ def undo_last_employee_selection():
 def submit_guest():
     if st.session_state.guest_name and st.session_state.guest_company:
         now = datetime.now()
+        guest_initials = ''.join([name[0].upper() for name in st.session_state.guest_name.split()])[:3]
+        short_id = f"G{guest_initials}{now.strftime('%H%M%S')}"
         new_record = {
-            'ID': f"Guest_{now.strftime('%Y%m%d%H%M%S')}",
+            'ID': short_id,
             'Name': st.session_state.guest_name,
             'Firma': st.session_state.guest_company,
             'Team': 'Guest',
@@ -115,5 +119,7 @@ def guest_info():
     st.session_state.guest_company = st.text_input(get_text("Firma des Gastes", "Guest Company"))
     if st.button(get_text("Bestätigen", "Confirm")):
         submit_guest()
+
+
 
 
