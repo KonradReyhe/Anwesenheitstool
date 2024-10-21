@@ -9,36 +9,43 @@ import time
 import os
 import zipfile
 import io
-from utils import get_text, add_success_message, auto_save_attendance
+from utils import get_text
 from pdf_utils import generate_pdf
 from navigation import return_to_company_selection
+from data_utils import get_companies, get_teams_for_company, get_employees_for_team
+from core_functions import delete_attendance_record, save_current_attendance, check_company_team_change
+from save_operations import save_attendance, auto_save_attendance
 from message_utils import show_custom_employee_message
 from timer import start_timer
-from data_utils import get_companies, get_teams_for_company, get_employees_for_team
-from save_operations import save_attendance
-
-
+from app_functions import add_success_message
 print("Defining get_companies function")
-def delete_attendance_record():
-    st.session_state.attendance_data = []
-    st.success(get_text("Anwesenheitsdaten wurden gelöscht.", "Attendance data has been deleted."))
 
-def save_current_attendance():
-    if save_attendance():
-        st.success(get_text("Aktuelle Anwesenheit wurde gespeichert.", "Current attendance has been saved."))
-    else:
-        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern vorhanden.", "No attendance data available to save."))
+def add_employee_to_attendance(employee):
+    now = datetime.now()
+    employee_initials = ''.join([name[0].upper() for name in employee.split()])[:3]
+    short_id = f"{employee_initials}{now.strftime('%H%M%S')}"
+    new_record = {
+        'ID': short_id,
+        'Name': employee,
+        'Firma': st.session_state.selected_company,
+        'Team': st.session_state.selected_team,
+        'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    st.session_state.attendance_data.append(new_record)
+    st.session_state.added_employees.append(employee)
+    auto_save_attendance()
+    add_success_message(employee)
+    
+    if st.session_state.require_signature:
+        st.session_state.show_signature_modal = True
+    
+    if employee in st.session_state.custom_employee_messages:
+        show_custom_employee_message(employee)
+    
+    start_timer()
 
-def check_company_team_change():
-    current_company_team = (st.session_state.selected_company, st.session_state.selected_team)
-    if st.session_state.current_company_team != current_company_team:
-        st.session_state.added_employees = []
-        st.session_state.current_company_team = current_company_team
-        st.session_state.timer_active = False
-        st.session_state.countdown_start_time = None
-        st.session_state.success_messages = []
-        st.session_state.last_message_time = None
-        st.session_state.all_employees_added_time = None
+__all__ = ['add_employee_to_attendance']
+
 
 def add_employee_to_attendance(employee):
     now = datetime.now()
@@ -121,5 +128,26 @@ def guest_info():
         submit_guest()
 
 
+def add_employee(employee):
+    add_employee_to_attendance(employee)
+    st.session_state.current_employee = employee
+    
+    if st.session_state.require_signature:
+        st.session_state.show_signature_modal = True
+    else:
+        add_success_message(employee)
+    
+    if employee in st.session_state.custom_employee_messages:
+        show_custom_employee_message(employee)
+    
+    start_timer()
 
 
+__all__ = [
+    'delete_attendance_record',
+    'save_current_attendance',
+    'check_company_team_change',
+    'add_employee_to_attendance',
+    'undo_last_employee_selection',
+    'submit_guest'
+]

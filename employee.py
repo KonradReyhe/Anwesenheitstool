@@ -2,10 +2,8 @@
 import streamlit as st
 import time
 from data_utils import get_employees_for_team
-from utils import get_text, add_success_message, auto_save_attendance, update_last_activity
-from attendance import (
-    add_employee_to_attendance
-)
+from utils import get_text, auto_save_attendance, update_last_activity
+from attendance_functions import add_employee_to_attendance
 from state_management import check_company_team_change
 from ui_components import (
     display_header, 
@@ -26,6 +24,8 @@ from navigation import return_to_company_selection
 from message_utils import show_custom_employee_message
 from admin import admin_panel
 from math import ceil
+from app_functions import add_success_message
+from attendance import add_employee_to_attendance
 
 def select_employee():
     if not check_employee_pin():
@@ -47,7 +47,7 @@ def select_employee():
     for i, employee in enumerate(employees):
         with columns[i % num_columns]:
             if st.button(employee, key=f"employee_{employee}", use_container_width=True):
-                add_employee(employee)
+                add_employee_to_attendance(employee)
                 st.success(get_text(f"Sie haben sich erfolgreich als {employee} angemeldet.", f"You have successfully logged in as {employee}."))
                 st.session_state.page = 'select_company'
                 st.rerun()
@@ -119,19 +119,5 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
-
-def add_employee(employee):
-    add_employee_to_attendance(employee)
-    st.session_state.current_employee = employee
-    
-    if st.session_state.require_signature:
-        st.session_state.show_signature_modal = True
-    else:
-        add_success_message(employee)
-    
-    if employee in st.session_state.custom_employee_messages:
-        show_custom_employee_message(employee)
-    
-    start_timer()
 
 __all__ = ['select_employee']

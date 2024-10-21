@@ -3,34 +3,37 @@ import streamlit as st
 import pandas as pd
 from language_utils import toggle_language
 from text_utils import get_text
-
-from utils import end_get_together, save_attendance
 from attendance import delete_attendance_record, save_current_attendance
 from session_state import initialize_session_state
+from event_management import end_get_together, save_attendance
+from ui_components import display_header
 
 def show_admin_panel():
     st.session_state.show_admin_panel = True
 
 def admin_settings():
-    st.subheader(get_text("Admin-Einstellungen", "Admin Settings"))
-    
-    if st.button(get_text("Sprache ändern", "Change Language")):
-        toggle_language()
-    
-    if st.button(get_text("Anwesenheitsdaten löschen", "Delete Attendance Data")):
-        delete_attendance_record()
-    
-    if st.button(get_text("Aktuelle Anwesenheit speichern", "Save Current Attendance")):
-        save_current_attendance()
-    
-    change_pin()
-    update_master_data()
-    set_custom_messages()
-    update_accounting_email()
-    end_get_together_button()
-    remove_participants()
+    display_header()
 
-    # Add Datenschutz PIN update
+    st.markdown(
+        f"""
+        <div style="
+            color: #f9c61e;
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0 30px 0;
+        ">
+            {get_text('Admin Einstellungen', 'Admin Settings')}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # PIN Change
+    st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
+    change_pin()
+
+    # Datenschutz PIN update
     st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN:', 'Data Protection PIN:')}</div>", unsafe_allow_html=True)
     new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
     confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
@@ -45,6 +48,22 @@ def admin_settings():
             st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
         else:
             st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+
+    # Remove participants
+    st.markdown(f"<div class='sub-header'>{get_text('Teilnehmer entfernen:', 'Remove Participants:')}</div>", unsafe_allow_html=True)
+    remove_participants()
+
+    # End GetTogether button
+    st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
+    end_get_together_button()
+
+    # Back button
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
+        st.session_state.page = 'select_company'
+        st.session_state.show_admin_panel = False
+        st.session_state.admin_access_granted = False
+        st.rerun()
 
 def change_pin():
     new_pin = st.text_input(get_text("Neuer PIN", "New PIN"), type="password")
@@ -103,9 +122,31 @@ def confirm_end_get_together():
         else:
             st.error(get_text("Falscher PIN", "Incorrect PIN"))
 
-def admin_panel():
-    if st.button(get_text("Admin-Einstellungen", "Admin Settings")):
-        st.session_state.page = 'admin_settings'
+def admin_panel(delete_attendance_record, save_current_attendance):
+    st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+
+    with col2:
+        enter_button = st.button("Enter", key="admin_pin_enter")
+
+    if enter_button:
+        if entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True
+            st.session_state.page = 'admin_settings'
+            st.success(get_text("Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.", 
+                                "Admin access granted. You will be redirected to the settings."))
+            st.rerun()
+        else:
+            st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+
+    if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
+        st.session_state.page = 'select_company'
+        st.session_state.show_admin_panel = False
+        st.session_state.admin_access_granted = False
         st.rerun()
 
 def remove_participants():

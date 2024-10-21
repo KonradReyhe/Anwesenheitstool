@@ -37,3 +37,14 @@ def create_zip_file(files, output_path):
     with zipfile.ZipFile(output_path, 'w') as zipf:
         for file in files:
             zipf.write(file, arcname=os.path.basename(file))
+
+def auto_save_attendance():
+    if st.session_state.attendance_data:
+        df = pd.DataFrame(st.session_state.attendance_data)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_name = f"Anwesenheit_{timestamp}.csv"
+        df.to_csv(file_name, index=False)
+        return file_name
+    return False
+
+__all__ = ['save_attendance', 'create_zip_file', 'auto_save_attendance']

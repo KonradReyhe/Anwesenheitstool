@@ -9,8 +9,10 @@ import os
 import pandas as pd
 from state_management import check_company_team_change
 from auth import start_get_together
-from attendance import (
-    add_employee_to_attendance
+from attendance_functions import (
+    delete_attendance_record,
+    save_current_attendance,
+    check_company_team_change
 )
 from save_operations import save_attendance
 from data_utils import get_companies, get_teams_for_company, get_employees_for_team
@@ -20,7 +22,7 @@ from ui_components import (
     toggle_language, display_header, signature_modal, guest_info, display_back_button,
     select_team_callback
 )
-from admin import admin_panel
+from admin import admin_panel, admin_settings
 from utils import (
     get_text, end_get_together, auto_save_attendance, check_event_end,
     create_zip_file, generate_pdf, schedule_event_end, add_success_message,
@@ -33,6 +35,14 @@ from timer import start_timer, check_timer, display_back_button
 from navigation import return_to_company_selection, go_back_to_team_from_employee
 from PIL import Image
 from employee import select_employee
+from employee_utils import add_employee_to_attendance
+from header_utils import display_header
+from app_functions import add_success_message, admin_panel
+from core_functions import (
+    delete_attendance_record,
+    save_current_attendance,
+    check_company_team_change
+)
 
 local_tz = pytz.timezone('Europe/Berlin')
 
@@ -74,6 +84,8 @@ def navigate():
         guest_info()
     elif st.session_state.page == 'update_master_data':
         update_master_data()
+    elif st.session_state.page == 'admin_settings':
+        admin_settings()
     else:
         st.error("Invalid page")
 
@@ -221,4 +233,3 @@ def select_team_callback(team):
     st.session_state.selected_team = team
     st.session_state.page = 'select_employee'
     st.rerun()
-
