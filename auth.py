@@ -5,6 +5,7 @@ import time
 from config import INACTIVITY_TIMEOUT
 from text_utils import get_text
 
+
 def start_get_together(pin1, pin2, custom_event_name):
     if pin1 and pin2 and pin1 == pin2:
         st.session_state.pin = pin1

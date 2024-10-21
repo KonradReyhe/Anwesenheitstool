@@ -1,12 +1,13 @@
 # admin.py
+
 import streamlit as st
 import pandas as pd
-from language_utils import toggle_language
 from text_utils import get_text
-from attendance import delete_attendance_record, save_current_attendance
+from state_management import delete_attendance_record, save_current_attendance
 from session_state import initialize_session_state
-from event_management import end_get_together, save_attendance
-from ui_components import display_header
+from header import display_header
+from utils import end_get_together
+
 
 def show_admin_panel():
     st.session_state.show_admin_panel = True
@@ -31,7 +32,7 @@ def admin_settings():
 
     # PIN Change
     st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
-    change_pin()
+   
 
     # Datenschutz PIN update
     st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN:', 'Data Protection PIN:')}</div>", unsafe_allow_html=True)
@@ -65,11 +66,6 @@ def admin_settings():
         st.session_state.admin_access_granted = False
         st.rerun()
 
-def change_pin():
-    new_pin = st.text_input(get_text("Neuer PIN", "New PIN"), type="password")
-    if st.button(get_text("PIN ändern", "Change PIN")):
-        st.session_state.pin = new_pin
-        st.success(get_text("PIN wurde geändert", "PIN has been changed"))
 
 def update_master_data():
     st.subheader(get_text("Stammdaten aktualisieren", "Update Master Data"))
@@ -82,20 +78,7 @@ def update_master_data():
         except Exception as e:
             st.error(f"Error: {e}")
 
-def set_custom_messages():
-    st.subheader(get_text("Benutzerdefinierte Nachrichten", "Custom Messages"))
-    employee = st.text_input(get_text("Mitarbeiter", "Employee"))
-    message = st.text_area(get_text("Nachricht", "Message"))
-    if st.button(get_text("Nachricht speichern", "Save Message")):
-        st.session_state.custom_employee_messages[employee] = message
-        st.success(get_text("Nachricht gespeichert", "Message saved"))
 
-def update_accounting_email():
-    st.subheader(get_text("Buchhaltungs-E-Mail aktualisieren", "Update Accounting Email"))
-    email = st.text_input(get_text("E-Mail-Adresse", "Email Address"))
-    if st.button(get_text("E-Mail aktualisieren", "Update Email")):
-        st.session_state.accounting_email = email
-        st.success(get_text("E-Mail-Adresse aktualisiert", "Email address updated"))
 
 def end_get_together_button():
     if st.button(get_text("GetTogether beenden", "End GetTogether")):
@@ -122,7 +105,7 @@ def confirm_end_get_together():
         else:
             st.error(get_text("Falscher PIN", "Incorrect PIN"))
 
-def admin_panel(delete_attendance_record, save_current_attendance):
+def admin_panel():
     st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])

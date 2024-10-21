@@ -46,11 +46,3 @@ def send_documents_to_accounting(zip_file_path):
         st.error(f"Failed to send email: {e}")
         return False
 
-def show_custom_employee_message(employee):
-    if employee in st.session_state.custom_employee_messages:
-        st.markdown("### " + get_text("Wichtige Mitteilung", "Important Notice"))
-        st.write(st.session_state.custom_employee_messages[employee])
-        if st.button(get_text("Schließen", "Close"), key="close_custom_message"):
-            st.session_state.show_custom_message = False
-            st.rerun()
-

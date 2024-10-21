@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 import os
-from utils import get_text
+from text_utils import get_text
 
 def get_companies():
     file_path = "Firmen_Teams_Mitarbeiter.csv"

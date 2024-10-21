@@ -1,7 +1,7 @@
 #timer.py
 import streamlit as st
 import time
-from utils import get_text
+from text_utils import get_text
 from navigation import return_to_company_selection
 
 def start_timer():

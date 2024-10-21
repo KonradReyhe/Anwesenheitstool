@@ -1,11 +1,9 @@
-#ui_components.py
-from config import VERSION
+# ui_components.py
+
 import streamlit as st
-from utils import get_text, display_countdown_timer, end_get_together, add_success_message, auto_save_attendance
-from language_utils import toggle_language
-from data_utils import get_companies, get_teams_for_company
-from message_utils import show_custom_employee_message
-from attendance_functions import add_employee_to_attendance
+from text_utils import get_text
+from data_utils import get_companies, get_teams_for_company, get_employees_for_team
+from attendance import add_employee_to_attendance, undo_last_employee_selection, auto_save_attendance
 from timer import start_timer
 import time
 from PIL import Image
@@ -16,37 +14,18 @@ from datetime import datetime
 import os
 import base64
 from auth import check_datenschutz_pin
-from admin import admin_panel
-from navigation import return_to_company_selection, go_back_to_team_from_employee, select_company_callback, go_back_to_company
+from navigation import (
+    return_to_company_selection, go_back_to_team_from_employee,
+    select_company_callback, select_team_callback, go_back_to_company
+)
 import pytz
 from io import BytesIO
-from header_utils import display_header
-from attendance import undo_last_employee_selection, add_employee_to_attendance
+from utils import end_get_together
+from header import display_header
 
-local_tz = pytz.timezone('Europe/Berlin')  # Replace with your actual timezone
 
-def display_employee_buttons(employees):
-    num_cols = min(3, len(employees))
-    num_rows = ceil(len(employees) / num_cols)
-    
-    container = st.container()
-    with container:
-        for row in range(num_rows):
-            cols = st.columns(num_cols)
-            for col in range(num_cols):
-                idx = row * num_cols + col
-                if idx < len(employees):
-                    with cols[col]:
-                        employee = employees[idx]
-                        is_added = employee in st.session_state.added_employees
-                        button_key = f"employee_{employee}_{idx}"
-                        
-                        if st.button(employee, key=button_key, use_container_width=True, 
-                                     disabled=is_added):
-                            handle_employee_selection(employee)
-                        
-                        if is_added:
-                            apply_selected_button_style(button_key)
+local_tz = pytz.timezone('Europe/Berlin')  
+
 
 def handle_employee_selection(employee):
     if employee not in st.session_state.added_employees:
@@ -56,8 +35,7 @@ def handle_employee_selection(employee):
         if st.session_state.require_signature:
             st.session_state.show_signature_modal = True
         
-        if employee in st.session_state.custom_employee_messages:
-            show_custom_employee_message(employee)
+        
         
         start_timer()
         st.rerun()
@@ -79,6 +57,7 @@ def handle_undo_last_selection():
                      use_container_width=True):
             undo_last_employee_selection()
 
+
 def select_team():
     display_header()
     display_company_team_info()
@@ -96,10 +75,7 @@ def select_team():
     
     display_back_button()
 
-def select_team_callback(team):
-    st.session_state.selected_team = team
-    st.session_state.page = 'select_employee'
-    st.rerun()
+
 
 def apply_selected_button_style(button_key):
     st.markdown(f"""
@@ -190,13 +166,7 @@ def image_to_base64(image):
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-def select_company_callback(company):
-    st.session_state.selected_company = company
-    if company == get_text("Gast", "Guest"):
-        st.session_state.page = 'guest_info'
-    else:
-        st.session_state.page = 'select_team'
-    st.rerun()
+
 
 def display_company_team_info():
     if st.session_state.selected_company:
@@ -230,44 +200,6 @@ def submit_guest():
     else:
         st.error(get_text("Bitte füllen Sie alle Felder aus.", "Please fill in all fields."))
 
-def display_countdown_timer():
-    if st.session_state.end_time and st.session_state.get_together_started:
-        now = datetime.now(local_tz)
-        time_remaining = st.session_state.end_time - now
-        if time_remaining.total_seconds() > 0:
-            days, remainder = divmod(time_remaining.total_seconds(), 86400)
-            hours, remainder = divmod(remainder, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            
-            countdown_text = get_text(
-                f"Verbleibende Zeit: {int(days)} T, {int(hours)} Std, {int(minutes)} Min",
-                f"Time remaining: {int(days)}d, {int(hours)}h, {int(minutes)}m"
-            )
-            
-            st.markdown(
-                f"""
-                <div style="
-                    position: fixed;
-                    top: 10px;
-                    right: 10px;
-                    background-color: rgba(249, 198, 30, 0.1);
-                    color: #888888;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    font-size: 12px;
-                    z-index: 1000;
-                ">
-                    {countdown_text}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            st.warning(get_text("Das Event ist beendet!", "The event has ended!"))
-            end_get_together()
-            st.session_state.get_together_started = False
-            st.session_state.page = 'home'
-            st.rerun()
 
 def display_back_button():
     if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
@@ -286,17 +218,111 @@ def display_back_button():
         if remaining_time == 0:
             go_back_to_company()
 
-__all__ = ['select_company', 'select_team', 'display_company_team_info', 'display_employee_buttons',
-           'handle_signature_modal', 'display_success_messages', 'handle_undo_last_selection',
-           'toggle_language', 'display_header', 'signature_modal', 'guest_info', 'display_back_button']
+__all__ = [
+    'select_company',
+    'select_team',
+    'select_employee',
+    'guest_info',
+    'display_back_button',
+    'display_company_team_info',
+    'display_employee_buttons',
+    'handle_signature_modal',
+    'display_success_messages',
+    'handle_undo_last_selection',
+    'signature_modal',
+]
 
-def display_language_toggle():
-    # Implement language toggle functionality here
-    pass
 
-def display_version():
-    # Implement version display functionality here
-    st.text(f"Version: {VERSION}")  # Make sure to import VERSION from the appropriate module
+def select_employee():
+    if not check_employee_pin():
+        return
+
+    display_header()
+    display_company_team_info()
+    
+    employees = get_employees_for_team(st.session_state.selected_company, st.session_state.selected_team)
+    if not employees:
+        st.warning(get_text("Keine Mitarbeiter für dieses Team gefunden.", "No employees found for this team."))
+        return
+
+    st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter auswählen:', 'Select employee:')}</div>", unsafe_allow_html=True)
+    
+    num_columns = 3
+    columns = st.columns(num_columns)
+    
+    for i, employee in enumerate(employees):
+        with columns[i % num_columns]:
+            if st.button(employee, key=f"employee_{employee}", use_container_width=True):
+                add_employee_to_attendance(employee)
+                st.success(get_text(f"Sie haben sich erfolgreich als {employee} angemeldet.", f"You have successfully logged in as {employee}."))
+                st.session_state.page = 'select_company'
+                st.rerun()
+
+    display_back_button()
+
+def check_employee_pin():
+    if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
+        pin = st.text_input(get_text("PIN eingeben:", "Enter PIN:"), type="password")
+        if st.button(get_text("Bestätigen", "Confirm")):
+            if pin == st.session_state.employee_pin:
+                return True
+            else:
+                st.error(get_text("Falsche PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
+                return False
+    else:
+        return True
+
+def display_employee_buttons(employees):
+    num_cols = min(3, len(employees))
+    num_rows = ceil(len(employees) / num_cols)
+    
+    container = st.container()
+    with container:
+        for row in range(num_rows):
+            cols = st.columns(num_cols)
+            for col in range(num_cols):
+                idx = row * num_cols + col
+                if idx < len(employees):
+                    with cols[col]:
+                        employee = employees[idx]
+                        is_added = employee in st.session_state.added_employees
+                        button_key = f"employee_{employee}_{idx}"
+                        
+                        if st.button(employee, key=button_key, use_container_width=True, 
+                                     disabled=is_added):
+                            handle_employee_selection(employee)
+                        
+                        if is_added:
+                            apply_selected_button_style(button_key)
+
+def select_employee_callback(employee):
+    now = datetime.now()
+    new_record = {
+        'ID': f"{employee}_{now.strftime('%Y%m%d%H%M%S')}",
+        'Name': employee,
+        'Firma': st.session_state.selected_company,
+        'Team': st.session_state.selected_team,
+        'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    st.session_state.attendance_data.append(new_record)
+    auto_save_attendance()
+    
+
+def check_all_employees_added(employees):
+    if st.session_state.all_employees_added_time:
+        time_since_all_added = time.time() - st.session_state.all_employees_added_time
+        if time_since_all_added <= 5:
+            st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
+                             f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
+        else:
+            return_to_company_selection()
+    elif set(st.session_state.added_employees) == set(employees):
+        st.session_state.all_employees_added_time = time.time()
+
+
+
+
+
 
 
 

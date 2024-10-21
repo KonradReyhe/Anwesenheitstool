@@ -1,6 +1,6 @@
-#naigation.py
+#navigation.py
 import streamlit as st
-from utils import get_text
+from text_utils import get_text
 
 def go_back_to_company():
     st.session_state.selected_company = None
@@ -34,17 +34,6 @@ def return_to_company_selection():
     st.session_state.all_employees_added_time = None
     st.rerun()
 
-def reset_to_company_selection():
-    st.session_state.selected_company = None
-    st.session_state.selected_team = None
-    st.session_state.added_employees = []
-    st.session_state.timer_active = False
-    st.session_state.countdown_start_time = None
-    st.session_state.success_messages = []
-    st.session_state.last_message_time = None
-    st.session_state.all_employees_added_time = None
-    st.session_state.page = 'select_company'
-
 def reset_timer_state():
     st.session_state.timer_active = False
     st.session_state.countdown_start_time = None
@@ -57,3 +46,9 @@ def select_company_callback(company):
     else:
         st.session_state.page = 'select_team'
     st.rerun()
+
+def select_team_callback(team):
+    st.session_state.selected_team = team
+    st.session_state.page = 'select_employee'
+    st.rerun()
+
