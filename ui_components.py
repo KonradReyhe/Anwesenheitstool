@@ -194,16 +194,19 @@ def display_company_team_info():
         )
 
 def guest_info():
-    st.title(get_text("Gast-Information", "Guest Information"))
+    display_header()
+    
+    st.markdown(f"<div class='sub-header'>{get_text('Gast-Information', 'Guest Information')}</div>", unsafe_allow_html=True)
+    
     st.session_state.guest_name = st.text_input(get_text("Name des Gastes", "Guest Name"))
     st.session_state.guest_company = st.text_input(get_text("Firma des Gastes (optional)", "Guest Company (optional)"))
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button(get_text("Bestätigen", "Confirm")):
+        if st.button(get_text("Bestätigen", "Confirm"), use_container_width=True):
             submit_guest()
     with col2:
-        if st.button(get_text("Zurück", "Back")):
+        if st.button(get_text("Zurück", "Back"), use_container_width=True):
             st.session_state.page = 'select_company'
             st.rerun()
 
@@ -220,7 +223,6 @@ def submit_guest():
         st.session_state.attendance_data.append(new_record)
         auto_save_attendance()
         
-        # Add success message
         success_message = get_text(
             f'Gast "{st.session_state.guest_name}" wurde zur Anwesenheitsliste hinzugefügt.',
             f'Guest "{st.session_state.guest_name}" has been added to the attendance list.'
@@ -381,6 +383,8 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
 
 
 
