@@ -75,11 +75,14 @@ def select_team():
     for i, team in enumerate(teams):
         with columns[i % num_columns]:
             if st.button(team, key=f"team_{team}", use_container_width=True):
-                select_team_callback(team)
-    
-    # Add a back button
+                st.session_state.selected_team = team
+                st.session_state.page = 'select_employee'
+                st.rerun()
+
     if st.button(get_text("Zurück", "Back"), key="back_to_company", use_container_width=True):
-        go_back_to_company()
+        st.session_state.selected_company = None
+        st.session_state.page = 'select_company'
+        st.rerun()
 
 
 
@@ -289,12 +292,15 @@ def select_employee():
             if st.button(employee, key=f"employee_{employee}_{i}", use_container_width=True):
                 add_employee_to_attendance(employee)
                 st.session_state.page = 'select_company'
+                st.rerun()
 
     # Add back button
     if st.button(get_text("Zurück", "Back"), key="back_to_team", use_container_width=True):
-        go_back_to_team_from_employee()
+        st.session_state.selected_team = None
+        st.session_state.page = 'select_team'
+        st.rerun()
 
-   
+    handle_undo_last_selection()
 
 def check_employee_pin():
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
@@ -403,6 +409,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
 
 
 
