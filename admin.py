@@ -234,7 +234,8 @@ def remove_participants_page():
 def end_get_together_page():
     display_styled_admin_page(
         get_text('GetTogether beenden', 'End GetTogether'),
-        get_text('Beendet das aktuelle GetTogether-Event', 'Ends the current GetTogether event')
+        get_text('Beendet das aktuelle GetTogether-Event und sendet eine CSV-Datei an die Buchhaltungs-E-Mail',
+                 'Ends the current GetTogether event and sends a CSV file to the accounting email')
     )
     if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
         end_get_together()

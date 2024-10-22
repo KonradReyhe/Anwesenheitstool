@@ -54,14 +54,6 @@ def display_success_messages():
             st.session_state.success_messages = []
             st.session_state.last_message_time = None
 
-def handle_undo_last_selection():
-    if st.session_state.added_employees:
-        if st.button(get_text("Letzte Auswahl rückgängig machen", "Undo last selection"), 
-                     key="undo_last_selection",
-                     use_container_width=True):
-            undo_last_employee_selection()
-
-
 def select_team():
     display_header()
     display_company_team_info()
@@ -297,7 +289,7 @@ def select_employee():
         st.session_state.page = 'select_team'
         st.rerun()
 
-    handle_undo_last_selection()
+    
 
 def check_employee_pin():
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:

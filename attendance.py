@@ -7,6 +7,7 @@ import time
 import os
 from text_utils import get_text
 from timer import start_timer
+import zipfile
 
 def add_success_message(employee):
     new_message = get_text(
@@ -54,8 +55,13 @@ def save_attendance():
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"Anwesenheit_{timestamp}.csv"
-        df.to_csv(file_name, index=False)
+        csv_file_name = f"Anwesenheit_{timestamp}.csv"
+        zip_file_name = f"Anwesenheit_{timestamp}.zip"
+        df.to_csv(csv_file_name, index=False)
+        with zipfile.ZipFile(zip_file_name, 'w') as zipf:
+            zipf.write(csv_file_name, arcname=csv_file_name)
+        os.remove(csv_file_name)  # Remove the temporary CSV file
+        return zip_file_name
     return False
 
 def undo_last_employee_selection():

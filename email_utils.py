@@ -7,6 +7,10 @@ from email import encoders
 import smtplib
 import streamlit as st
 from text_utils import get_text
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def send_documents_to_accounting(zip_file_path):
     smtp_server = os.getenv('SMTP_SERVER')
@@ -41,8 +45,12 @@ def send_documents_to_accounting(zip_file_path):
             server.starttls()
             server.login(sender_email, sender_password)
             server.send_message(message)
+        logger.info(f"Email sent successfully to {accounting_email}")
         return True
-    except Exception as e:
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP error occurred: {e}")
         st.error(f"Failed to send email: {e}")
-        return False
-
+    except Exception as e:
+        logger.error(f"Unexpected error occurred: {e}")
+        st.error(f"An unexpected error occurred while sending email: {e}")
+    return False

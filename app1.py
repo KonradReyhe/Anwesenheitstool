@@ -6,6 +6,7 @@ import pytz
 import sys
 from streamlit.runtime.scriptrunner import RerunException, StopException
 import asyncio
+import logging
 
 from auth import start_get_together, start_get_together_callback
 from ui_components import (
@@ -18,8 +19,12 @@ from utils import check_event_end
 from text_utils import get_text
 from utils import display_countdown_timer
 from admin import admin_settings, update_master_data, admin_panel
+from attendance import auto_save_attendance
 
 local_tz = pytz.timezone('Europe/Berlin')
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def home():
     display_header()
@@ -70,26 +75,25 @@ async def main():
         if not st.session_state.get('get_together_started', False):
             home()
         else:
-            if st.session_state.page == 'select_company':
-                select_company()
-            elif st.session_state.page == 'select_team':
-                select_team()
-            elif st.session_state.page == 'select_employee':
-                select_employee()
-            elif st.session_state.page == 'guest_info':
-                guest_info()
-            elif st.session_state.page == 'admin_settings':
-                admin_settings()
+            navigate()
         
         await check_event_end()
-        await asyncio.sleep(0)  # Allow other coroutines to run
-        st_autorefresh(interval=30000, key="datarefresh")  # 30 seconds instead of 5
+        
+        # Use asyncio.create_task for background tasks
+        asyncio.create_task(periodic_auto_save())
+        
+        st_autorefresh(interval=30000, key="datarefresh")
     except (RerunException, StopException):
         raise
     except Exception as e:
+        logger.error(f"An unexpected error occurred: {str(e)}")
         st.error(f"An unexpected error occurred: {str(e)}")
         st.stop()
 
+async def periodic_auto_save():
+    while True:
+        auto_save_attendance()
+        await asyncio.sleep(300)  # Auto-save every 5 minutes
+
 if __name__ == "__main__":
     asyncio.run(main())
-
