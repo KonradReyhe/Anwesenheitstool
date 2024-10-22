@@ -76,7 +76,11 @@ def select_team():
             if st.button(team, key=f"team_{team}", use_container_width=True):
                 select_team_callback(team)
     
-    
+    # Add a back button
+    if st.button(get_text("Zurück", "Back"), key="back_to_company", use_container_width=True):
+        go_back_to_company()
+
+
 
 
 
@@ -269,10 +273,13 @@ def select_employee():
     
     for i, employee in enumerate(employees):
         with columns[i % num_columns]:
-            # Using loop index to ensure unique keys
             if st.button(employee, key=f"employee_{employee}_{i}", use_container_width=True):
                 add_employee_to_attendance(employee)
                 st.session_state.page = 'select_company'
+
+    # Add back button
+    if st.button(get_text("Zurück", "Back"), key="back_to_team", use_container_width=True):
+        go_back_to_team_from_employee()
 
    
 
@@ -383,6 +390,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
 
 
 
