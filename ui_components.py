@@ -219,8 +219,15 @@ def submit_guest():
         }
         st.session_state.attendance_data.append(new_record)
         auto_save_attendance()
-        st.success(get_text(f"Gast {st.session_state.guest_name} wurde hinzugefügt.", 
-                            f"Guest {st.session_state.guest_name} has been added."))
+        
+        # Add success message
+        success_message = get_text(
+            f'Gast "{st.session_state.guest_name}" wurde zur Anwesenheitsliste hinzugefügt.',
+            f'Guest "{st.session_state.guest_name}" has been added to the attendance list.'
+        )
+        st.session_state.success_messages.append(success_message)
+        st.session_state.last_message_time = time.time()
+        
         st.session_state.page = 'select_company'
         st.rerun()
     else:
@@ -374,6 +381,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
