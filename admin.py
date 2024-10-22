@@ -42,13 +42,13 @@ def admin_settings():
         for option, label in options:
             if st.button(label, key=f"admin_{option}", use_container_width=True):
                 st.session_state.admin_page = option
-                # Removed st.rerun()
+                st.rerun()
 
         if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
             st.session_state.page = 'select_company'
             st.session_state.show_admin_panel = False
             st.session_state.admin_access_granted = False
-            # Removed st.rerun()
+            st.rerun()
     else:
         if st.session_state.admin_page == 'change_event_name':
             change_event_name_page()
@@ -111,13 +111,13 @@ def admin_panel():
         if entered_pin == st.session_state.pin:
             st.session_state.admin_access_granted = True
             st.session_state.page = 'admin_settings'
-            # Removed st.rerun()
+            st.rerun()
         else:
             st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
     
     if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
         st.session_state.show_admin_panel = False
-        # Removed st.rerun()
+        st.rerun()
 
 def remove_participants():
     if st.session_state.attendance_data:
@@ -143,6 +143,7 @@ def change_event_name_page():
     if st.button(get_text("Event-Name aktualisieren", "Update Event Name")):
         st.session_state.custom_event_name = new_event_name
         st.success(get_text("Event-Name wurde aktualisiert.", "Event Name has been updated."))
+        st.rerun()
     back_to_admin_settings()
 
 def change_pin_page():
@@ -156,6 +157,7 @@ def change_pin_page():
         if new_pin and new_pin == confirm_new_pin:
             st.session_state.pin = new_pin
             st.success(get_text("PIN wurde aktualisiert.", "PIN has been updated."))
+            st.rerun()
         elif not new_pin:
             st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
         else:
@@ -183,7 +185,7 @@ def change_datenschutz_pin_page():
 def remove_participants_page():
     display_styled_admin_page(
         get_text('Teilnehmer entfernen', 'Remove Participants'),
-        get_text('Entfernen Sie Teilnehmer aus der Anwesenheitsliste', 'Remove participants from the attendance list')
+        get_text('Entfernt ausgewählte Teilnehmer aus der Liste', 'Removes selected participants from the list')
     )
     
     current_time = time.time()
@@ -236,6 +238,7 @@ def end_get_together_page():
     )
     if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
         end_get_together()
+        st.rerun()
     back_to_admin_settings()
 
 def back_to_admin_settings():
@@ -277,6 +280,11 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
+
+
+
+
 
 
 
