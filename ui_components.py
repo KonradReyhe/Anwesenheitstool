@@ -130,6 +130,9 @@ def select_company():
     # Display success messages if any
     display_success_messages()
     
+    if st.session_state.custom_event_name:
+        st.markdown(f"<div class='event-name'>{st.session_state.custom_event_name}</div>", unsafe_allow_html=True)
+    
     st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
     
     companies = get_companies()
@@ -150,8 +153,6 @@ def select_company():
     for i, company in enumerate(special_companies):
         with special_cols[i]:
             display_company_button(company)
-    
-    # Removed display_back_button() call
 
 def display_company_button(company):
     logo_path = f"logos/{company.lower().replace(' ', '_')}.png"
@@ -311,6 +312,11 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
+
+
+
+
+
 
 
 

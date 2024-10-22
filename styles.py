@@ -76,11 +76,10 @@ def apply_custom_styles():
         color: #000000;
     }
     .event-name {
-        color: #f9c61e;
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
+        color: #f9c61e;
         text-align: center;
-        margin-top: 10px;
         margin-bottom: 20px;
     }
     /* Company logo styles */
