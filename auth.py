@@ -55,6 +55,3 @@ def start_get_together_callback():
             st.session_state.datenschutz_pin_active = True
         st.session_state.page = 'select_company'
         st.rerun()
-
-if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
-    start_get_together_callback()

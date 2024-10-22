@@ -138,7 +138,6 @@ def select_company():
             if entered_pin == st.session_state.pin:
                 st.session_state.admin_access_granted = True
                 st.session_state.page = 'admin_settings'
-                st.success(get_text("Admin-Zugang gewährt.", "Admin access granted."))
             else:
                 st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
         if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):

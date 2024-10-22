@@ -102,18 +102,21 @@ def confirm_end_get_together():
 def admin_panel():
     st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
     
-    entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+    with st.form(key='admin_pin_form'):
+        entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+        submit_button = st.form_submit_button("Enter")
     
-    if st.button("Enter", key="admin_pin_enter"):
+    if submit_button:
         if entered_pin == st.session_state.pin:
             st.session_state.admin_access_granted = True
             st.session_state.page = 'admin_settings'
-            st.success(get_text("Admin-Zugang gewährt.", "Admin access granted."))
+            st.rerun()
         else:
             st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
     
     if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
         st.session_state.show_admin_panel = False
+        st.rerun()
 
 def remove_participants():
     if st.session_state.attendance_data:
@@ -273,7 +276,6 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
-
 
 
 
