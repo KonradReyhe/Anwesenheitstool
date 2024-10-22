@@ -6,7 +6,7 @@ import pytz
 
 from auth import start_get_together
 from ui_components import (
-    select_company, select_team, select_employee, guest_info, display_back_button
+    select_company, select_team, select_employee, guest_info, 
 )
 from header import display_header
 from session_state import initialize_session_state
@@ -14,7 +14,7 @@ from styles import apply_custom_styles
 from utils import check_event_end
 from text_utils import get_text
 from utils import display_countdown_timer
-from admin import admin_settings, update_master_data
+from admin import admin_settings, update_master_data, admin_panel
 
 
 local_tz = pytz.timezone('Europe/Berlin')
@@ -58,7 +58,11 @@ def navigate():
     elif st.session_state.page == 'update_master_data':
         update_master_data()
     elif st.session_state.page == 'admin_settings':
-        admin_settings()
+        if st.session_state.get('admin_access_granted', False):
+            admin_settings()
+        else:
+            st.session_state.page = 'select_company'
+            st.rerun()
     else:
         st.error("Invalid page")
 

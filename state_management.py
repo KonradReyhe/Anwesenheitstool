@@ -2,8 +2,6 @@
 
 import streamlit as st
 from text_utils import get_text
-from attendance import save_attendance  
-
 
 def check_company_team_change():
     current_company_team = (st.session_state.selected_company, st.session_state.selected_team)

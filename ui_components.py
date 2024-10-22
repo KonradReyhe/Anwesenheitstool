@@ -13,15 +13,14 @@ from math import ceil
 from datetime import datetime
 import os
 import base64
-from auth import check_datenschutz_pin
 from navigation import (
     return_to_company_selection, go_back_to_team_from_employee,
     select_company_callback, select_team_callback, go_back_to_company
 )
 import pytz
 from io import BytesIO
-from utils import end_get_together
 from header import display_header
+from admin import admin_panel
 
 
 local_tz = pytz.timezone('Europe/Berlin')  
@@ -123,6 +122,9 @@ def handle_signature_modal():
 def select_company():
     display_header()
     
+    if st.session_state.show_admin_panel:
+        admin_panel()
+
     st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
     
     companies = get_companies()
@@ -318,6 +320,7 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
+
 
 
 

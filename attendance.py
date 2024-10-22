@@ -6,9 +6,7 @@ from datetime import datetime
 import time
 import os
 from text_utils import get_text
-from navigation import return_to_company_selection
 from timer import start_timer
-from state_management import check_company_team_change
 
 def add_success_message(employee):
     new_message = get_text(
