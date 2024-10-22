@@ -153,6 +153,23 @@ def apply_custom_styles():
         max-width: 100%;
         height: auto;
     }
+
+    /* Flexbox alignment for admin panel */
+    .admin-panel-container {
+        display: flex;
+        align-items: center;
+    }
+
+    .admin-panel-container .stTextInput > div > div > input {
+        flex: 3;
+    }
+
+    .admin-panel-container .stButton > button {
+        flex: 1;
+        height: 50px; /* Adjust the height as needed */
+    }
+
+    /* Ensure the button and input have the same height */
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)

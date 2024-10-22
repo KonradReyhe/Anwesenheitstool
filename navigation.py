@@ -13,7 +13,6 @@ def go_back_to_company():
     st.session_state.last_message_time = None
     st.session_state.all_employees_added_time = None
     st.session_state.page = 'select_company'
-    st.rerun()
 
 def go_back_to_team_from_employee():
     # Navigate back to the team selection screen
@@ -32,7 +31,6 @@ def return_to_company_selection():
     st.session_state.success_messages = []
     st.session_state.last_message_time = None
     st.session_state.all_employees_added_time = None
-    st.rerun()
 
 def reset_timer_state():
     st.session_state.timer_active = False
@@ -45,10 +43,8 @@ def select_company_callback(company):
         st.session_state.page = 'guest_info'
     else:
         st.session_state.page = 'select_team'
-    st.rerun()
 
 def select_team_callback(team):
     st.session_state.selected_team = team
     st.session_state.page = 'select_employee'
-    st.rerun()
 

@@ -37,17 +37,21 @@ def handle_employee_selection(employee):
         
         
         start_timer()
-        st.rerun()
 
 def display_success_messages():
-    with st.container():
-        for message in st.session_state.success_messages:
-            st.success(message)
-    
-    current_time = time.time()
-    if st.session_state.last_message_time and current_time - st.session_state.last_message_time > 5:
-        st.session_state.success_messages = []
-        st.session_state.last_message_time = None
+    if st.session_state.success_messages:
+        with st.container():
+            for message in st.session_state.success_messages:
+                st.success(message)
+        
+        current_time = time.time()
+        if st.session_state.last_message_time is None:
+            st.session_state.last_message_time = current_time
+        
+        # If 5 seconds have passed since the message was set, clear the messages
+        if current_time - st.session_state.last_message_time > 5:
+            st.session_state.success_messages = []
+            st.session_state.last_message_time = None
 
 def handle_undo_last_selection():
     if st.session_state.added_employees:
@@ -112,8 +116,6 @@ def signature_modal():
             add_employee_to_attendance(st.session_state.current_employee)
             
             st.session_state.show_signature_modal = False
-            st.rerun()
-
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -125,6 +127,9 @@ def select_company():
     if st.session_state.show_admin_panel:
         admin_panel()
 
+    # Display success messages if any
+    display_success_messages()
+    
     st.markdown(f"<div class='important-text'>{get_text('Bitte wählen Sie eine Firma aus, um Ihre Anwesenheit zu bestätigen:', 'Please select a company to confirm your attendance:')}</div>", unsafe_allow_html=True)
     
     companies = get_companies()
@@ -140,14 +145,13 @@ def select_company():
             with col:
                 display_company_button(company)
     
-    # Display special companies at the bottom
     st.markdown("<div class='company-divider'></div>", unsafe_allow_html=True)
     special_cols = st.columns(3)
     for i, company in enumerate(special_companies):
         with special_cols[i]:
             display_company_button(company)
     
-    display_back_button()
+    # Removed display_back_button() call
 
 def display_company_button(company):
     logo_path = f"logos/{company.lower().replace(' ', '_')}.png"
@@ -254,11 +258,10 @@ def select_employee():
     
     for i, employee in enumerate(employees):
         with columns[i % num_columns]:
-            if st.button(employee, key=f"employee_{employee}", use_container_width=True):
+            # Using loop index to ensure unique keys
+            if st.button(employee, key=f"employee_{employee}_{i}", use_container_width=True):
                 add_employee_to_attendance(employee)
-                st.success(get_text(f"Sie haben sich erfolgreich als {employee} angemeldet.", f"You have successfully logged in as {employee}."))
                 st.session_state.page = 'select_company'
-                st.rerun()
 
     display_back_button()
 
@@ -320,6 +323,18 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

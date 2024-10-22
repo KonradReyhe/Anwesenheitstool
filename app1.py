@@ -42,7 +42,6 @@ def home():
                 st.session_state.datenschutz_pin = datenschutz_pin
                 st.session_state.datenschutz_pin_active = True
             st.session_state.page = 'select_company'
-            st.rerun()
 
 def navigate():
     if st.session_state.page == 'home':
@@ -62,7 +61,6 @@ def navigate():
             admin_settings()
         else:
             st.session_state.page = 'select_company'
-            st.rerun()
     else:
         st.error("Invalid page")
 
@@ -71,7 +69,6 @@ def main():
     apply_custom_styles()
     st_autorefresh(interval=1000, key="autorefresh_main")
     check_event_end()
-    display_countdown_timer()
     navigate()
 
 if __name__ == "__main__":

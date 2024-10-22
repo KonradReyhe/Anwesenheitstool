@@ -64,3 +64,7 @@ def initialize_employee_session_state():
         st.session_state.countdown_start_time = None
     if 'all_employees_added_time' not in st.session_state:
         st.session_state.all_employees_added_time = None
+    if 'success_messages' not in st.session_state:
+        st.session_state.success_messages = []
+    if 'last_message_time' not in st.session_state:
+        st.session_state.last_message_time = None

@@ -61,8 +61,6 @@ def trigger_rerun():
 def toggle_language():
     st.session_state.language = 'EN' if st.session_state.language == 'DE' else 'DE'
     st.success(get_text("Sprache wurde geändert.", "Language has been changed."))
-    st.rerun()
-
 
 def update_last_activity():
     st.session_state.last_activity_time = time.time()

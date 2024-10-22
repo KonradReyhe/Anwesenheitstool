@@ -50,9 +50,7 @@ def display_header():
             if st.session_state.get('get_together_started', False):
                 if st.button("⚙️", key="settings_button", help=get_text("Admin-Einstellungen", "Admin Settings")):
                     st.session_state.show_admin_panel = not st.session_state.get('show_admin_panel', False)
-                    st.rerun()
             if st.button("🌐", key="language_toggle", help=get_text("Sprache ändern", "Change Language")):
                 toggle_language()
-                st.rerun()
 
     return header_container
