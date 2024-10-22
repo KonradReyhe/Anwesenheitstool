@@ -6,6 +6,7 @@ from text_utils import get_text
 from session_state import initialize_session_state
 from header import display_header
 from utils import end_get_together
+import time
 
 
 def show_admin_panel():
@@ -216,13 +217,46 @@ def remove_participants_page():
         get_text('Teilnehmer entfernen', 'Remove Participants'),
         get_text('Entfernen Sie Teilnehmer aus der Anwesenheitsliste', 'Remove participants from the attendance list')
     )
+    
+    current_time = time.time()
+    if 'removal_success_message' in st.session_state and 'removal_success_time' in st.session_state:
+        if current_time - st.session_state.removal_success_time < 5:
+            st.success(st.session_state.removal_success_message)
+        else:
+            del st.session_state.removal_success_message
+            del st.session_state.removal_success_time
+
     if st.session_state.attendance_data:
         for record in st.session_state.attendance_data:
-            if st.button(f"Remove {record['Name']}", key=f"remove_{record['Name']}"):
-                st.session_state.attendance_data.remove(record)
-                st.session_state.added_employees.remove(record['Name'])
-                st.success(f"{record['Name']} has been removed.")
-                st.rerun()
+            with st.expander(f"{record['Name']} - {record['Firma']}"):
+                st.write(f"{get_text('Team:', 'Team:')} {record['Team']}")
+                st.write(f"{get_text('Zeit:', 'Time:')} {record['Zeit']}")
+                
+                confirm_key = f"confirm_remove_{record['Name']}"
+                if confirm_key not in st.session_state:
+                    st.session_state[confirm_key] = False
+                
+                if not st.session_state[confirm_key]:
+                    if st.button(get_text("Entfernen", "Remove"), key=f"remove_{record['Name']}"):
+                        st.session_state[confirm_key] = True
+                        st.rerun()
+                else:
+                    st.warning(get_text(f"Sind Sie sicher, dass Sie {record['Name']} entfernen möchten?", 
+                                        f"Are you sure you want to remove {record['Name']}?"))
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(get_text("Ja, entfernen", "Yes, remove"), key=f"confirm_{record['Name']}"):
+                            st.session_state.attendance_data.remove(record)
+                            st.session_state.added_employees.remove(record['Name'])
+                            st.session_state.removal_success_message = get_text(f"{record['Name']} wurde erfolgreich entfernt.", 
+                                                                                f"{record['Name']} has been successfully removed.")
+                            st.session_state.removal_success_time = time.time()
+                            del st.session_state[confirm_key]
+                            st.rerun()
+                    with col2:
+                        if st.button(get_text("Abbrechen", "Cancel"), key=f"cancel_{record['Name']}"):
+                            st.session_state[confirm_key] = False
+                            st.rerun()
     else:
         st.info(get_text("Keine Teilnehmer vorhanden.", "No participants available."))
     back_to_admin_settings()
@@ -263,3 +297,19 @@ def display_styled_admin_page(title, description):
         """,
         unsafe_allow_html=True
     )
+
+def confirm_removal(name):
+    return st.warning(
+        get_text(
+            f"Sind Sie sicher, dass Sie {name} entfernen möchten?",
+            f"Are you sure you want to remove {name}?"
+        ),
+        icon="⚠️"
+    ) and st.button(
+        get_text("Ja, entfernen", "Yes, remove"),
+        key=f"confirm_{name}"
+    )
+
+
+
+
