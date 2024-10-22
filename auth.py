@@ -8,13 +8,12 @@ from text_utils import get_text
 
 def start_get_together(pin1, pin2, custom_event_name):
     if pin1 and pin2 and pin1 == pin2:
-        st.session_state.pin = pin1
-        st.session_state.get_together_started = True
-        
-        # Set custom event name only if it's not empty
-        st.session_state.custom_event_name = custom_event_name if custom_event_name else ""
-        
-        st.success(get_text("GetTogether gestartet!", "GetTogether started!"))
+        st.session_state.update({
+            'pin': pin1,
+            'get_together_started': True,
+            'custom_event_name': custom_event_name if custom_event_name else "",
+            'page': 'select_company'
+        })
         return True
     else:
         if not pin1 or not pin2:
@@ -47,3 +46,15 @@ def datenschutz_pin_page():
         else:
             st.error(get_text("Falsche PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
     return False
+
+def start_get_together_callback():
+    if start_get_together(st.session_state.pin1, st.session_state.pin2, st.session_state.custom_event_name_input):
+        st.session_state.require_signature = st.session_state.require_signature_checkbox
+        if st.session_state.datenschutz_pin_input:
+            st.session_state.datenschutz_pin = st.session_state.datenschutz_pin_input
+            st.session_state.datenschutz_pin_active = True
+        st.session_state.page = 'select_company'
+        st.rerun()
+
+if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
+    start_get_together_callback()

@@ -98,58 +98,22 @@ def confirm_end_get_together():
         else:
             st.error(get_text("Falscher PIN", "Incorrect PIN"))
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def admin_panel():
-    admin_content = st.empty()
-    with admin_content.container():
-        st.markdown(
-            f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>",
-            unsafe_allow_html=True
-        )
-
-        # Adjust column ratios for better alignment
-        col1, col2 = st.columns([3, 1])
-
-        with col1:
-            entered_pin = st.text_input(
-                get_text("Admin PIN eingeben", "Enter Admin PIN"),
-                type="password",
-                key="admin_pin_input"
-            )
-
-        with col2:
-            # Add some padding to vertically center the button
-            st.markdown("<br>", unsafe_allow_html=True)
-            enter_button = st.button(
-                "Enter",
-                key="admin_pin_enter",
-                use_container_width=True
-            )
-
-        if enter_button or (entered_pin and st.session_state.get('_admin_pin_last', '') != entered_pin):
-            if entered_pin == st.session_state.pin:
-                st.session_state.admin_access_granted = True
-                st.session_state.page = 'admin_settings'
-                st.success(
-                    get_text(
-                        "Admin-Zugang gewährt. Sie werden zu den Einstellungen weitergeleitet.",
-                        "Admin access granted. You will be redirected to the settings."
-                    )
-                )
-
-            else:
-                st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
-
-        st.session_state['_admin_pin_last'] = entered_pin
-
-        # Add a cancel button aligned to the right
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button(
-            get_text("Abbrechen", "Cancel"),
-            key="cancel_admin_panel"
-        ):
-            st.session_state.show_admin_panel = False
-
-    return admin_content
+    st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
+    
+    entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+    
+    if st.button("Enter", key="admin_pin_enter"):
+        if entered_pin == st.session_state.pin:
+            st.session_state.admin_access_granted = True
+            st.session_state.page = 'admin_settings'
+            st.success(get_text("Admin-Zugang gewährt.", "Admin access granted."))
+        else:
+            st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+    
+    if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
+        st.session_state.show_admin_panel = False
 
 def remove_participants():
     if st.session_state.attendance_data:
@@ -309,6 +273,9 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
+
+
 
 
 

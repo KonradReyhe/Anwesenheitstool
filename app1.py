@@ -5,8 +5,9 @@ from streamlit_autorefresh import st_autorefresh
 import pytz
 import sys
 from streamlit.runtime.scriptrunner import RerunException, StopException
+import asyncio
 
-from auth import start_get_together
+from auth import start_get_together, start_get_together_callback
 from ui_components import (
     select_company, select_team, select_employee, guest_info, 
 )
@@ -24,25 +25,21 @@ def home():
     display_header()
     st.markdown(f"<div class='sub-header'>{get_text('GetTogether konfigurieren:', 'Configure GetTogether:')}</div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        pin1 = st.text_input(get_text("Setzen Sie einen PIN:", "Set a PIN:"), type="password", key="pin1")
-    with col2:
-        pin2 = st.text_input(get_text("Bestätigen Sie den PIN:", "Confirm the PIN:"), type="password", key="pin2")
-    
-    custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
-    
-    datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
-    
-    require_signature = st.checkbox(get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), value=st.session_state.get('require_signature', False))
-    
-    if st.button(get_text("GetTogether beginnen", "Start GetTogether")):
-        if start_get_together(pin1, pin2, custom_event_name):
-            st.session_state.require_signature = require_signature
-            if datenschutz_pin:
-                st.session_state.datenschutz_pin = datenschutz_pin
-                st.session_state.datenschutz_pin_active = True
-            st.session_state.page = 'select_company'
+    with st.form(key='start_gettogether_form'):
+        col1, col2 = st.columns(2)
+        with col1:
+            pin1 = st.text_input(get_text("Setzen Sie einen PIN:", "Set a PIN:"), type="password", key="pin1")
+        with col2:
+            pin2 = st.text_input(get_text("Bestätigen Sie den PIN:", "Confirm the PIN:"), type="password", key="pin2")
+        
+        custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
+        
+        datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
+        
+        require_signature = st.checkbox(get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), value=st.session_state.get('require_signature', False), key="require_signature_checkbox")
+        
+        if st.form_submit_button(get_text("GetTogether beginnen", "Start GetTogether")):
+            start_get_together_callback()
 
 def navigate():
     if st.session_state.page == 'home':
@@ -65,7 +62,7 @@ def navigate():
     else:
         st.error("Invalid page")
 
-def main():
+async def main():
     try:
         initialize_session_state()
         apply_custom_styles()
@@ -84,8 +81,9 @@ def main():
             elif st.session_state.page == 'admin_settings':
                 admin_settings()
         
-        check_event_end()
-        st_autorefresh(interval=5000, key="datarefresh")
+        await check_event_end()
+        await asyncio.sleep(0)  # Allow other coroutines to run
+        st_autorefresh(interval=30000, key="datarefresh")  # 30 seconds instead of 5
     except (RerunException, StopException):
         raise
     except Exception as e:
@@ -93,7 +91,4 @@ def main():
         st.stop()
 
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit:
-        pass
+    asyncio.run(main())

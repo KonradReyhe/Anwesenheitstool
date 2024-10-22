@@ -21,6 +21,7 @@ import pytz
 from io import BytesIO
 from header import display_header
 from admin import admin_panel
+import threading
 
 
 local_tz = pytz.timezone('Europe/Berlin')  
@@ -99,27 +100,27 @@ def signature_modal():
         with st.form(key='signature_form'):
             st.write(get_text("Bitte unterschreiben Sie hier:", "Please sign here:"))
             canvas_result = st_canvas(
-                fill_color="rgba(255, 165, 0, 0.3)",
                 stroke_width=2,
                 stroke_color="#000000",
                 background_color="#ffffff",
-                height=150,
-                width=400,
+                height=100,  # Reduced height
+                width=300,   # Reduced width
                 drawing_mode="freedraw",
                 key="canvas",
             )
             submitted = st.form_submit_button(get_text("Unterschrift bestätigen", "Confirm Signature"))
-            
+        
         if submitted and canvas_result.image_data is not None:
-            # Save the signature
-            signature_path = f"signatures/{st.session_state.current_employee}_{int(time.time())}.png"
-            Image.fromarray(canvas_result.image_data.astype('uint8')).save(signature_path)
-            st.session_state.signatures[st.session_state.current_employee] = signature_path
-            
-            # Add employee to attendance
-            add_employee_to_attendance(st.session_state.current_employee)
-            
+            # Process signature asynchronously
+            threading.Thread(target=process_signature, args=(canvas_result.image_data, st.session_state.current_employee)).start()
             st.session_state.show_signature_modal = False
+            st.experimental_rerun()
+
+def process_signature(image_data, employee):
+    signature_path = f"signatures/{employee}_{int(time.time())}.png"
+    Image.fromarray(image_data.astype('uint8')).save(signature_path)
+    st.session_state.signatures[employee] = signature_path
+    add_employee_to_attendance(employee)
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -129,8 +130,18 @@ def select_company():
     display_header()
     
     if st.session_state.show_admin_panel:
-        admin_panel()
-
+        entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
+        if st.button("Enter", key="admin_pin_enter"):
+            if entered_pin == st.session_state.pin:
+                st.session_state.admin_access_granted = True
+                st.session_state.page = 'admin_settings'
+                st.success(get_text("Admin-Zugang gewährt.", "Admin access granted."))
+            else:
+                st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+        if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
+            st.session_state.show_admin_panel = False
+    
+    
     display_success_messages()
     
     if st.session_state.custom_event_name:
@@ -176,7 +187,9 @@ def display_company_button(company):
             """, 
             unsafe_allow_html=True
         )
-    st.button(company, key=company, on_click=select_company_callback, args=(company,), use_container_width=True)
+    if st.button(company, key=company, use_container_width=True):
+        select_company_callback(company)
+        st.rerun()
 
 def image_to_base64(image):
     buffered = BytesIO()
@@ -390,6 +403,14 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
 
 
 

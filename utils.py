@@ -9,6 +9,7 @@ import time
 from email_utils import send_documents_to_accounting
 from config import VERSION
 from text_utils import get_text  
+import asyncio
 
 
 local_tz = pytz.timezone('Europe/Berlin')
@@ -32,7 +33,7 @@ def end_get_together():
 def schedule_event_end(end_time):
     st.session_state.end_time = end_time.astimezone(local_tz)
 
-def check_event_end():
+async def check_event_end():
     if 'end_time' in st.session_state and st.session_state.end_time and not st.session_state.get('cancel_end', False):
         now = datetime.now(local_tz)
         if now >= st.session_state.end_time:
@@ -40,7 +41,9 @@ def check_event_end():
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
             st.rerun()
+    await asyncio.sleep(0)  # Allow other coroutines to run
 
+@st.cache_data(ttl=60)  # Cache for 1 minute
 def display_countdown_timer():
     if 'scheduled_end_time' in st.session_state and st.session_state.scheduled_end_time:
         now = datetime.now()
@@ -48,9 +51,10 @@ def display_countdown_timer():
         if time_left.total_seconds() > 0:
             hours, remainder = divmod(time_left.seconds, 3600)
             minutes, seconds = divmod(remainder, 60)
-            st.write(f"Time left: {hours:02d}:{minutes:02d}:{seconds:02d}")
+            return f"Time left: {hours:02d}:{minutes:02d}:{seconds:02d}"
         else:
-            st.write(get_text("Zeit abgelaufen", "Time's up"))
+            return get_text("Zeit abgelaufen", "Time's up")
+    return ""
 
 def cancel_scheduled_end():
     st.session_state.scheduled_end_time = None
