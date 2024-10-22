@@ -3,6 +3,8 @@
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import pytz
+import sys
+from streamlit.runtime.scriptrunner import RerunException, StopException
 
 from auth import start_get_together
 from ui_components import (
@@ -15,7 +17,6 @@ from utils import check_event_end
 from text_utils import get_text
 from utils import display_countdown_timer
 from admin import admin_settings, update_master_data, admin_panel
-
 
 local_tz = pytz.timezone('Europe/Berlin')
 
@@ -65,11 +66,34 @@ def navigate():
         st.error("Invalid page")
 
 def main():
-    initialize_session_state()
-    apply_custom_styles()
-    st_autorefresh(interval=1000, key="autorefresh_main")
-    check_event_end()
-    navigate()
+    try:
+        initialize_session_state()
+        apply_custom_styles()
+        
+        if not st.session_state.get('get_together_started', False):
+            home()
+        else:
+            if st.session_state.page == 'select_company':
+                select_company()
+            elif st.session_state.page == 'select_team':
+                select_team()
+            elif st.session_state.page == 'select_employee':
+                select_employee()
+            elif st.session_state.page == 'guest_info':
+                guest_info()
+            elif st.session_state.page == 'admin_settings':
+                admin_settings()
+        
+        check_event_end()
+        st_autorefresh(interval=5000, key="datarefresh")
+    except (RerunException, StopException):
+        raise
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        st.stop()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        pass
