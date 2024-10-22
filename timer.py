@@ -13,7 +13,7 @@ def start_timer():
 def display_back_button():
     if st.button(get_text("Zurück", "Back"), key="back_button"):
         st.session_state.page = 'home'
-        st.experimental_rerun()
+        st.rerun()
 
 def reset_timer_state():
     st.session_state.timer_active = False

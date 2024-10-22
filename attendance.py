@@ -79,7 +79,7 @@ def undo_last_employee_selection():
         
         auto_save_attendance()
         
-        st.experimental_rerun()
+        st.rerun()
 
 __all__ = [
     'add_employee_to_attendance',

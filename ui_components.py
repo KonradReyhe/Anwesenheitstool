@@ -209,7 +209,7 @@ def submit_guest():
         st.success(get_text(f"Gast {st.session_state.guest_name} wurde hinzugefügt.", 
                             f"Guest {st.session_state.guest_name} has been added."))
         st.session_state.page = 'select_company'
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.error(get_text("Bitte füllen Sie alle Felder aus.", "Please fill in all fields."))
 

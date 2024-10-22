@@ -27,7 +27,7 @@ def end_get_together():
     st.session_state.get_together_started = False
     st.session_state.page = 'home'
     st.success(get_text("GetTogether wurde beendet.", "GetTogether has been ended."))
-    st.experimental_rerun()
+    st.rerun()
 
 def schedule_event_end(end_time):
     st.session_state.end_time = end_time.astimezone(local_tz)
@@ -39,7 +39,7 @@ def check_event_end():
             end_get_together()
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
-            st.experimental_rerun()
+            st.rerun()
 
 def display_countdown_timer():
     if 'scheduled_end_time' in st.session_state and st.session_state.scheduled_end_time:
