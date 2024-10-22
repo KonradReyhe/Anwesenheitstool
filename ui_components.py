@@ -127,7 +127,6 @@ def select_company():
     if st.session_state.show_admin_panel:
         admin_panel()
 
-    # Display success messages if any
     display_success_messages()
     
     if st.session_state.custom_event_name:
@@ -148,11 +147,18 @@ def select_company():
             with col:
                 display_company_button(company)
     
-    st.markdown("<div class='company-divider'></div>", unsafe_allow_html=True)
+    # Add yellow dividing line with increased margin
+    st.markdown("<hr style='border: 2px solid #f9c61e; margin-top: 40px; margin-bottom: 40px;'>", unsafe_allow_html=True)
+    
+    # Display special companies with increased spacing
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     special_cols = st.columns(3)
     for i, company in enumerate(special_companies):
         with special_cols[i]:
             display_company_button(company)
+    
+    # Add extra space at the bottom
+    st.markdown("<div style='margin-bottom: 40px;'></div>", unsafe_allow_html=True)
 
 def display_company_button(company):
     logo_path = f"logos/{company.lower().replace(' ', '_')}.png"
@@ -346,5 +352,20 @@ def check_all_employees_added(employees):
 
 
 
+
+
+
+st.markdown("""
+<style>
+    .stButton>button {
+        width: 100%;
+    }
+    .special-companies {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
