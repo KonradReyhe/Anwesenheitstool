@@ -31,7 +31,7 @@ def admin_settings():
         )
 
         options = [
-            ("change_event_name", get_text("Event-Name ändern", "Change Event Name")),
+            ("change_event_name", get_text("Event-Name", "Event Name")),
             ("change_pin", get_text("PIN ändern", "Change PIN")),
             ("change_datenschutz_pin", get_text("Datenschutz PIN ändern", "Change Data Protection PIN")),
             ("remove_participants", get_text("Teilnehmer entfernen", "Remove Participants")),
@@ -166,7 +166,10 @@ def remove_participants():
 
 
 def change_event_name_page():
-    st.markdown(f"<h2>{get_text('Event-Name ändern', 'Change Event Name')}</h2>", unsafe_allow_html=True)
+    display_styled_admin_page(
+        get_text('Event-Name', 'Event Name'),
+        get_text('Wird im Header angezeigt', 'Displayed in the header')
+    )
     new_event_name = st.text_input(get_text("Neuer Event-Name", "New Event Name"), value=st.session_state.get('custom_event_name', ''))
     if st.button(get_text("Event-Name aktualisieren", "Update Event Name")):
         st.session_state.custom_event_name = new_event_name
@@ -174,7 +177,10 @@ def change_event_name_page():
     back_to_admin_settings()
 
 def change_pin_page():
-    st.markdown(f"<h2>{get_text('PIN ändern', 'Change PIN')}</h2>", unsafe_allow_html=True)
+    display_styled_admin_page(
+        get_text('PIN ändern', 'Change PIN'),
+        get_text('Sicherheits-PIN für den Admin-Zugang', 'Security PIN for admin access')
+    )
     new_pin = st.text_input(get_text("Neuer PIN", "New PIN"), type="password")
     confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm New PIN"), type="password")
     if st.button(get_text("PIN aktualisieren", "Update PIN")):
@@ -188,7 +194,10 @@ def change_pin_page():
     back_to_admin_settings()
 
 def change_datenschutz_pin_page():
-    st.markdown(f"<h2>{get_text('Datenschutz PIN ändern', 'Change Data Protection PIN')}</h2>", unsafe_allow_html=True)
+    display_styled_admin_page(
+        get_text('Datenschutz PIN ändern', 'Change Data Protection PIN'),
+        get_text('PIN für den Zugriff auf geschützte Daten', 'PIN for accessing protected data')
+    )
     new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
     confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
     if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN")):
@@ -203,7 +212,10 @@ def change_datenschutz_pin_page():
     back_to_admin_settings()
 
 def remove_participants_page():
-    st.markdown(f"<h2>{get_text('Teilnehmer entfernen', 'Remove Participants')}</h2>", unsafe_allow_html=True)
+    display_styled_admin_page(
+        get_text('Teilnehmer entfernen', 'Remove Participants'),
+        get_text('Entfernen Sie Teilnehmer aus der Anwesenheitsliste', 'Remove participants from the attendance list')
+    )
     if st.session_state.attendance_data:
         for record in st.session_state.attendance_data:
             if st.button(f"Remove {record['Name']}", key=f"remove_{record['Name']}"):
@@ -216,7 +228,10 @@ def remove_participants_page():
     back_to_admin_settings()
 
 def end_get_together_page():
-    st.markdown(f"<h2>{get_text('GetTogether beenden', 'End GetTogether')}</h2>", unsafe_allow_html=True)
+    display_styled_admin_page(
+        get_text('GetTogether beenden', 'End GetTogether'),
+        get_text('Beendet das aktuelle GetTogether-Event', 'Ends the current GetTogether event')
+    )
     if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
         end_get_together()
     back_to_admin_settings()
@@ -226,6 +241,25 @@ def back_to_admin_settings():
         st.session_state.admin_page = None
         st.rerun()
 
-
-
-
+def display_styled_admin_page(title, description):
+    st.markdown(
+        f"""
+        <div style="
+            background-color: #f0f2f6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        ">
+            <h2 style="
+                color: #f9c61e;
+                margin-bottom: 5px;
+            ">{title}</h2>
+            <p style="
+                color: #666;
+                font-style: italic;
+                margin-bottom: 20px;
+            ">{description}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
