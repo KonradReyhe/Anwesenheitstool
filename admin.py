@@ -14,40 +14,40 @@ def show_admin_panel():
 def admin_settings():
     display_header()
 
-    st.markdown(
-        f"""
-        <div style="
-            color: #f9c61e;
-            font-size: 36px;
-            font-weight: bold;
-            text-align: center;
-            margin: 20px 0 30px 0;
-        ">
-            {get_text('Admin Einstellungen', 'Admin Settings')}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    if 'admin_page' not in st.session_state or st.session_state.admin_page is None:
+        st.markdown(
+            f"""
+            <div style="
+                color: #f9c61e;
+                font-size: 36px;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px 0 30px 0;
+            ">
+                {get_text('Admin Einstellungen', 'Admin Settings')}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    options = [
-        ("change_event_name", get_text("Event-Name ändern", "Change Event Name")),
-        ("change_pin", get_text("PIN ändern", "Change PIN")),
-        ("change_datenschutz_pin", get_text("Datenschutz PIN ändern", "Change Data Protection PIN")),
-        ("remove_participants", get_text("Teilnehmer entfernen", "Remove Participants")),
-        ("end_get_together", get_text("GetTogether beenden", "End GetTogether")),
-    ]
+        options = [
+            ("change_event_name", get_text("Event-Name ändern", "Change Event Name")),
+            ("change_pin", get_text("PIN ändern", "Change PIN")),
+            ("change_datenschutz_pin", get_text("Datenschutz PIN ändern", "Change Data Protection PIN")),
+            ("remove_participants", get_text("Teilnehmer entfernen", "Remove Participants")),
+            ("end_get_together", get_text("GetTogether beenden", "End GetTogether")),
+        ]
 
-    for option, label in options:
-        if st.button(label, key=f"admin_{option}", use_container_width=True):
-            st.session_state.admin_page = option
-            st.rerun()
+        for option, label in options:
+            if st.button(label, key=f"admin_{option}", use_container_width=True):
+                st.session_state.admin_page = option
+                st.rerun()
 
-    if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
-        st.session_state.page = 'select_company'
-        st.session_state.show_admin_panel = False
-        st.session_state.admin_access_granted = False
-
-    if 'admin_page' in st.session_state:
+        if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
+            st.session_state.page = 'select_company'
+            st.session_state.show_admin_panel = False
+            st.session_state.admin_access_granted = False
+    else:
         if st.session_state.admin_page == 'change_event_name':
             change_event_name_page()
         elif st.session_state.admin_page == 'change_pin':
@@ -225,6 +225,7 @@ def back_to_admin_settings():
     if st.button(get_text("Zurück zu Admin-Einstellungen", "Back to Admin Settings")):
         st.session_state.admin_page = None
         st.rerun()
+
 
 
 
