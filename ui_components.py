@@ -196,17 +196,24 @@ def display_company_team_info():
 def guest_info():
     st.title(get_text("Gast-Information", "Guest Information"))
     st.session_state.guest_name = st.text_input(get_text("Name des Gastes", "Guest Name"))
-    st.session_state.guest_company = st.text_input(get_text("Firma des Gastes", "Guest Company"))
-    if st.button(get_text("Bestätigen", "Confirm")):
-        submit_guest()
+    st.session_state.guest_company = st.text_input(get_text("Firma des Gastes (optional)", "Guest Company (optional)"))
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(get_text("Bestätigen", "Confirm")):
+            submit_guest()
+    with col2:
+        if st.button(get_text("Zurück", "Back")):
+            st.session_state.page = 'select_company'
+            st.rerun()
 
 def submit_guest():
-    if st.session_state.guest_name and st.session_state.guest_company:
+    if st.session_state.guest_name:
         now = datetime.now()
         new_record = {
             'ID': f"Guest_{now.strftime('%Y%m%d%H%M%S')}",
             'Name': st.session_state.guest_name,
-            'Firma': st.session_state.guest_company,
+            'Firma': st.session_state.guest_company if st.session_state.guest_company else get_text("Nicht angegeben", "Not specified"),
             'Team': 'Guest',
             'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -217,7 +224,7 @@ def submit_guest():
         st.session_state.page = 'select_company'
         st.rerun()
     else:
-        st.error(get_text("Bitte füllen Sie alle Felder aus.", "Please fill in all fields."))
+        st.error(get_text("Bitte geben Sie mindestens den Namen des Gastes ein.", "Please enter at least the guest's name."))
 
 __all__ = [
     'select_company',
@@ -367,5 +374,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
