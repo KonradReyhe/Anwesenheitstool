@@ -75,8 +75,7 @@ def select_team():
     for i, team in enumerate(teams):
         with columns[i % num_columns]:
             if st.button(team, key=f"team_{team}", use_container_width=True):
-                st.session_state.selected_team = team
-                st.session_state.page = 'select_employee'
+                select_team_callback(team)
                 st.rerun()
 
     if st.button(get_text("Zurück", "Back"), key="back_to_company", use_container_width=True):
@@ -191,7 +190,7 @@ def display_company_button(company):
         )
     if st.button(company, key=f"company_button_{company}", use_container_width=True):
         select_company_callback(company)
-        # Removed st.rerun()
+        st.rerun()
 
 def image_to_base64(image):
     buffered = BytesIO()
@@ -293,7 +292,6 @@ def select_employee():
                 st.session_state.page = 'select_company'
                 st.rerun()
 
-    # Add back button
     if st.button(get_text("Zurück", "Back"), key="back_to_team", use_container_width=True):
         st.session_state.selected_team = None
         st.session_state.page = 'select_team'
@@ -408,6 +406,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
 
 
 

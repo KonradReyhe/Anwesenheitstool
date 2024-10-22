@@ -40,6 +40,7 @@ def reset_timer_state():
 def select_company_callback(company):
     st.session_state.selected_company = company
     st.session_state.page = 'select_team' if company != get_text("Gast", "Guest") else 'guest_info'
+    st.rerun()
 
 def select_team_callback(team):
     st.session_state.selected_team = team
