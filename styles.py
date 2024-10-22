@@ -31,6 +31,20 @@ def apply_custom_styles():
         text-align: center;
         margin-bottom: 25px;
     }
+    /* New styles for company and team info */
+    .company-info {
+        color: #000000; /* Adjust color to match your theme */
+        font-size: 24px; /* Adjust size as needed */
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .team-info {
+        color: #000000; /* Adjust color to match your theme */
+        font-size: 24px; /* Adjust size as needed */
+        text-align: center;
+        margin-bottom: 15px;
+    }
     /* Button styles */
     .stButton > button {
         border-radius: 15px;
@@ -153,7 +167,6 @@ def apply_custom_styles():
         max-width: 100%;
         height: auto;
     }
-
     /* Flexbox alignment for admin panel */
     .admin-panel-container {
         display: flex;

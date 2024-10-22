@@ -176,9 +176,15 @@ def image_to_base64(image):
 
 def display_company_team_info():
     if st.session_state.selected_company:
-        st.markdown(f"<div class='company-info'>{get_text('Ausgewählte Firma:', 'Selected Company:')} {st.session_state.selected_company}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='company-info'>{get_text('Ausgewählte Firma:', 'Selected Company:')} {st.session_state.selected_company}</div>", 
+            unsafe_allow_html=True
+        )
     if st.session_state.selected_team:
-        st.markdown(f"<div class='team-info'>{get_text('Ausgewähltes Team:', 'Selected Team:')} {st.session_state.selected_team}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='team-info'>{get_text('Ausgewähltes Team:', 'Selected Team:')} {st.session_state.selected_team}</div>", 
+            unsafe_allow_html=True
+        )
 
 def guest_info():
     st.title(get_text("Gast-Information", "Guest Information"))
@@ -305,6 +311,8 @@ def check_all_employees_added(employees):
             return_to_company_selection()
     elif set(st.session_state.added_employees) == set(employees):
         st.session_state.all_employees_added_time = time.time()
+
+
 
 
 
