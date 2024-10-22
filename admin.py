@@ -29,32 +29,97 @@ def admin_settings():
         unsafe_allow_html=True
     )
 
+    # Custom CSS for styling
+    st.markdown("""
+    <style>
+    .admin-block {
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #d0d7de;
+    }
+    .admin-block-title {
+        color: #f9c61e;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .stButton > button {
+        width: 100%;
+        background-color: #f9c61e;
+        color: white;
+        font-weight: bold;
+    }
+    .stTextInput > div > div > input {
+        border-radius: 5px;
+    }
+    .streamlit-expanderHeader {
+        background-color: #f0f2f6;
+        border: none !important;
+    }
+    .streamlit-expanderContent {
+        background-color: white;
+        border-top: 1px solid #d0d7de;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Event Name Change
+    with st.expander(get_text("Event-Name ändern", "Change Event Name"), expanded=False):
+        st.markdown('<div class="admin-block">', unsafe_allow_html=True)
+        with st.form(key='change_event_name_form'):
+            new_event_name = st.text_input(get_text("Neuer Event-Name", "New Event Name"), value=st.session_state.get('custom_event_name', ''))
+            submit_event_name = st.form_submit_button(get_text("Event-Name aktualisieren", "Update Event Name"))
+            if submit_event_name:
+                st.session_state.custom_event_name = new_event_name
+                st.success(get_text("Event-Name wurde aktualisiert.", "Event Name has been updated."))
+        st.markdown('</div>', unsafe_allow_html=True)
+
     # PIN Change
-    st.markdown(f"<div class='sub-header'>{get_text('PIN ändern:', 'Change PIN:')}</div>", unsafe_allow_html=True)
-   
+    with st.expander(get_text("PIN ändern", "Change PIN"), expanded=False):
+        st.markdown('<div class="admin-block">', unsafe_allow_html=True)
+        with st.form(key='change_pin_form'):
+            new_pin = st.text_input(get_text("Neuer PIN", "New PIN"), type="password")
+            confirm_new_pin = st.text_input(get_text("Neuen PIN bestätigen", "Confirm New PIN"), type="password")
+            submit_pin = st.form_submit_button(get_text("PIN aktualisieren", "Update PIN"))
+            if submit_pin:
+                if new_pin and new_pin == confirm_new_pin:
+                    st.session_state.pin = new_pin
+                    st.success(get_text("PIN wurde aktualisiert.", "PIN has been updated."))
+                elif not new_pin:
+                    st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
+                else:
+                    st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Datenschutz PIN update
-    st.markdown(f"<div class='sub-header'>{get_text('Datenschutz PIN:', 'Data Protection PIN:')}</div>", unsafe_allow_html=True)
-    new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
-    confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
-    
-    if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN")):
-        if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
-            st.session_state.datenschutz_pin = new_datenschutz_pin
-            st.session_state.datenschutz_pin_active = True
-            st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
-        elif not new_datenschutz_pin:
-            st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
-        else:
-            st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+    with st.expander(get_text("Datenschutz PIN ändern", "Change Data Protection PIN"), expanded=False):
+        st.markdown('<div class="admin-block">', unsafe_allow_html=True)
+        with st.form(key='change_datenschutz_pin_form'):
+            new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
+            confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
+            submit_datenschutz_pin = st.form_submit_button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN"))
+            if submit_datenschutz_pin:
+                if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
+                    st.session_state.datenschutz_pin = new_datenschutz_pin
+                    st.session_state.datenschutz_pin_active = True
+                    st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
+                elif not new_datenschutz_pin:
+                    st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
+                else:
+                    st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Remove participants
-    st.markdown(f"<div class='sub-header'>{get_text('Teilnehmer entfernen:', 'Remove Participants:')}</div>", unsafe_allow_html=True)
-    remove_participants()
+    with st.expander(get_text("Teilnehmer entfernen", "Remove Participants"), expanded=False):
+        st.markdown('<div class="admin-block">', unsafe_allow_html=True)
+        remove_participants()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # End GetTogether button
-    st.markdown(f"<div class='sub-header'>{get_text('GetTogether beenden:', 'End GetTogether:')}</div>", unsafe_allow_html=True)
-    end_get_together_button()
+    with st.expander(get_text("GetTogether beenden", "End GetTogether"), expanded=False):
+        st.markdown('<div class="admin-block">', unsafe_allow_html=True)
+        end_get_together_button()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Back button
     st.markdown("<br>", unsafe_allow_html=True)
@@ -78,7 +143,7 @@ def update_master_data():
 
 
 def end_get_together_button():
-    if st.button(get_text("GetTogether beenden", "End GetTogether")):
+    if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
         end_get_together()
 
 def reset_admin_state():
@@ -156,12 +221,16 @@ def admin_panel():
     return admin_content
 
 def remove_participants():
-    st.subheader(get_text("Teilnehmer entfernen", "Remove Participants"))
     if st.session_state.attendance_data:
         for record in st.session_state.attendance_data:
             if st.button(f"Remove {record['Name']}", key=f"remove_{record['Name']}"):
                 st.session_state.attendance_data.remove(record)
                 st.session_state.added_employees.remove(record['Name'])
                 st.success(f"{record['Name']} has been removed.")
+                st.experimental_rerun()
     else:
         st.info(get_text("Keine Teilnehmer vorhanden.", "No participants available."))
+
+
+
+
