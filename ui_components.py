@@ -76,7 +76,7 @@ def select_team():
             if st.button(team, key=f"team_{team}", use_container_width=True):
                 select_team_callback(team)
     
-    display_back_button()
+    
 
 
 
@@ -206,24 +206,6 @@ def submit_guest():
     else:
         st.error(get_text("Bitte füllen Sie alle Felder aus.", "Please fill in all fields."))
 
-
-def display_back_button():
-    if st.button(get_text("Zurück zur Firmenauswahl", "Back to company selection"), key="back_button"):
-        go_back_to_company()
-    
-    # Check if timer is active (only if not all employees have been added)
-    if st.session_state.timer_active and st.session_state.countdown_start_time and not st.session_state.all_employees_added_time:
-        # Calculate remaining time
-        elapsed_time = time.time() - st.session_state.countdown_start_time
-        remaining_time = max(0, 30 - int(elapsed_time))  # 30 seconds timer
-        
-        # Display countdown
-        st.info(f"{get_text('Zurück zur Firmenauswahl in', 'Back to company selection in')} {remaining_time} {get_text('Sekunden...', 'seconds...')}")
-        
-        # If the countdown is finished, reset and go back to company selection
-        if remaining_time == 0:
-            go_back_to_company()
-
 __all__ = [
     'select_company',
     'select_team',
@@ -263,7 +245,7 @@ def select_employee():
                 add_employee_to_attendance(employee)
                 st.session_state.page = 'select_company'
 
-    display_back_button()
+   
 
 def check_employee_pin():
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
