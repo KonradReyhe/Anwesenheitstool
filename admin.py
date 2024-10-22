@@ -42,12 +42,13 @@ def admin_settings():
         for option, label in options:
             if st.button(label, key=f"admin_{option}", use_container_width=True):
                 st.session_state.admin_page = option
-                st.rerun()
+                # Removed st.rerun()
 
         if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
             st.session_state.page = 'select_company'
             st.session_state.show_admin_panel = False
             st.session_state.admin_access_granted = False
+            # Removed st.rerun()
     else:
         if st.session_state.admin_page == 'change_event_name':
             change_event_name_page()
@@ -110,13 +111,13 @@ def admin_panel():
         if entered_pin == st.session_state.pin:
             st.session_state.admin_access_granted = True
             st.session_state.page = 'admin_settings'
-            st.rerun()
+            # Removed st.rerun()
         else:
             st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
     
     if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
         st.session_state.show_admin_panel = False
-        st.rerun()
+        # Removed st.rerun()
 
 def remove_participants():
     if st.session_state.attendance_data:
@@ -276,6 +277,9 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
+
+
 
 
 

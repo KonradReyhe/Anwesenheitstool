@@ -117,7 +117,7 @@ def signature_modal():
             # Process signature asynchronously
             threading.Thread(target=process_signature, args=(canvas_result.image_data, st.session_state.current_employee)).start()
             st.session_state.show_signature_modal = False
-            st.experimental_rerun()
+            # Removed st.experimental_rerun()
 
 def process_signature(image_data, employee):
     signature_path = f"signatures/{employee}_{int(time.time())}.png"
@@ -189,9 +189,9 @@ def display_company_button(company):
             """, 
             unsafe_allow_html=True
         )
-    if st.button(company, key=company, use_container_width=True):
+    if st.button(company, key=f"company_button_{company}", use_container_width=True):
         select_company_callback(company)
-        st.rerun()
+        # Removed st.rerun()
 
 def image_to_base64(image):
     buffered = BytesIO()
@@ -408,6 +408,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
 
 
 
