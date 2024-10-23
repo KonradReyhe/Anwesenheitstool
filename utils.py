@@ -68,7 +68,11 @@ def trigger_rerun():
     raise st.script_runner.RerunException(st.script_request_queue.RerunData(None))
 
 def toggle_language():
+    if 'language' not in st.session_state:
+        st.session_state.language = 'DE'
+    
     st.session_state.language = 'EN' if st.session_state.language == 'DE' else 'DE'
+    st.rerun()
 
 def update_last_activity():
     st.session_state.last_activity_time = time.time()

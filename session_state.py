@@ -7,7 +7,7 @@ def initialize_session_state():
     if 'page' not in st.session_state:
         st.session_state.page = 'home'
     if 'language' not in st.session_state:
-        st.session_state.language = 'DE'
+        st.session_state.language = 'de'  # Default to German
     if 'get_together_started' not in st.session_state:
         st.session_state.get_together_started = False
     if 'pin' not in st.session_state:
@@ -68,3 +68,4 @@ def initialize_employee_session_state():
         st.session_state.success_messages = []
     if 'last_message_time' not in st.session_state:
         st.session_state.last_message_time = None
+

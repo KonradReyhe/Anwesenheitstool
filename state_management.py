@@ -51,3 +51,5 @@ def initialize_session_state():
         st.session_state.last_message_time = None
     if 'all_employees_added_time' not in st.session_state:
         st.session_state.all_employees_added_time = None
+    if 'language' not in st.session_state:
+        st.session_state.language = 'DE'  # Default to German

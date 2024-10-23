@@ -10,7 +10,6 @@ from timer import start_timer
 import zipfile
 
 def add_success_message(employee):
-    # Clear any existing messages
     st.session_state.success_messages = []
     
     new_message = get_text(
@@ -47,14 +46,12 @@ def auto_save_attendance():
     if st.session_state.attendance_data:
         attendance_df = pd.DataFrame(st.session_state.attendance_data)
         
-        # Exclude the 'ID' column
         if 'ID' in attendance_df.columns:
             attendance_df = attendance_df.drop(columns=['ID'])
         
         local_data_dir = "data"
         os.makedirs(local_data_dir, exist_ok=True)
         
-        # Generate the filename with event name and date
         timestamp = datetime.now().strftime("%Y%m%d")
         if st.session_state.custom_event_name:
             sanitized_event_name = st.session_state.custom_event_name.replace(" ", "_")
@@ -70,11 +67,9 @@ def save_attendance():
     if st.session_state.attendance_data:
         df = pd.DataFrame(st.session_state.attendance_data)
         
-        # Exclude the 'ID' column
         if 'ID' in df.columns:
             df = df.drop(columns=['ID'])
         
-        # Generate the filename with event name and date
         timestamp = datetime.now().strftime("%Y%m%d")
         if st.session_state.custom_event_name:
             sanitized_event_name = st.session_state.custom_event_name.replace(" ", "_")
@@ -87,7 +82,7 @@ def save_attendance():
         df.to_csv(csv_file_name, index=False, encoding='utf-8')
         with zipfile.ZipFile(zip_file_name, 'w') as zipf:
             zipf.write(csv_file_name, arcname=csv_file_name)
-        os.remove(csv_file_name)  # Remove the temporary CSV file
+        os.remove(csv_file_name)  
         return zip_file_name
     return False
 

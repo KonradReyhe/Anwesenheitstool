@@ -8,7 +8,6 @@ from timer import start_timer
 import time
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
-import math
 from math import ceil
 from datetime import datetime
 import os
@@ -43,10 +42,8 @@ def display_success_messages():
     if st.session_state.success_messages and st.session_state.last_message_time:
         elapsed_time = current_time - st.session_state.last_message_time
         if elapsed_time < 5:
-            # Only display the most recent message
             st.success(st.session_state.success_messages[-1])
         else:
-            # Clear messages after 5 seconds
             st.session_state.success_messages = []
             st.session_state.last_message_time = None
 
@@ -57,14 +54,43 @@ def select_team():
     teams = get_teams_for_company(st.session_state.selected_company)
     st.markdown(f"<div class='sub-header'>{get_text('Team auswählen:', 'Select team:')}</div>", unsafe_allow_html=True)
     
-    num_columns = 3
-    columns = st.columns(num_columns)
-    
-    for i, team in enumerate(teams):
-        with columns[i % num_columns]:
-            if st.button(team, key=f"team_{team}", use_container_width=True):
-                select_team_callback(team)
+    num_teams = len(teams)
+    if num_teams == 1:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2: 
+            if st.button(teams[0], key=f"team_{teams[0]}", use_container_width=True):
+                select_team_callback(teams[0])
                 st.rerun()
+    elif num_teams == 2:
+        _, col1, col2, _ = st.columns([1, 2, 2, 1]) 
+        with col1:
+            if st.button(teams[0], key=f"team_{teams[0]}", use_container_width=True):
+                select_team_callback(teams[0])
+                st.rerun()
+        with col2:
+            if st.button(teams[1], key=f"team_{teams[1]}", use_container_width=True):
+                select_team_callback(teams[1])
+                st.rerun()
+    else:
+        for i in range(0, len(teams), 3):
+            row_teams = teams[i:i+3]
+            if len(row_teams) == 2:  
+                _, col1, col2, _ = st.columns([1, 2, 2, 1])  
+                with col1:
+                    if st.button(row_teams[0], key=f"team_{row_teams[0]}", use_container_width=True):
+                        select_team_callback(row_teams[0])
+                        st.rerun()
+                with col2:
+                    if st.button(row_teams[1], key=f"team_{row_teams[1]}", use_container_width=True):
+                        select_team_callback(row_teams[1])
+                        st.rerun()
+            else:  
+                cols = st.columns(3)
+                for j, team in enumerate(row_teams):
+                    with cols[j]:
+                        if st.button(team, key=f"team_{team}", use_container_width=True):
+                            select_team_callback(team)
+                            st.rerun()
 
     if st.button(get_text("Zurück", "Back"), key="back_to_company", use_container_width=True):
         st.session_state.selected_company = None
@@ -208,7 +234,7 @@ def guest_info():
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button(get_text("Besttigen", "Confirm"), use_container_width=True):
+        if st.button(get_text("Bestätigen", "Confirm"), use_container_width=True):
             submit_guest()
     with col2:
         if st.button(get_text("Zurück", "Back"), use_container_width=True):
@@ -228,7 +254,6 @@ def submit_guest():
         st.session_state.attendance_data.append(new_record)
         auto_save_attendance()
         
-        # Clear existing messages before adding new one
         st.session_state.success_messages = []
         success_message = get_text(
             f'Gast "{st.session_state.guest_name}" wurde zur Anwesenheitsliste hinzugefügt.',
@@ -271,15 +296,56 @@ def select_employee():
 
     st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter auswählen:', 'Select employee:')}</div>", unsafe_allow_html=True)
     
-    num_columns = 3
-    columns = st.columns(num_columns)
-    
-    for i, employee in enumerate(employees):
-        with columns[i % num_columns]:
-            if st.button(employee, key=f"employee_{employee}_{i}", use_container_width=True):
-                add_employee_to_attendance(employee)
+    num_employees = len(employees)
+    if num_employees == 1:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:  
+            if st.button(employees[0], key=f"employee_{employees[0]}_0", use_container_width=True):
+                add_employee_to_attendance(employees[0])
                 st.session_state.page = 'select_company'
                 st.rerun()
+    elif num_employees == 2:
+        _, col1, col2, _ = st.columns([1, 2, 2, 1])
+        with col1:
+            if st.button(employees[0], key=f"employee_{employees[0]}_0", use_container_width=True):
+                add_employee_to_attendance(employees[0])
+                st.session_state.page = 'select_company'
+                st.rerun()
+        with col2:
+            if st.button(employees[1], key=f"employee_{employees[1]}_1", use_container_width=True):
+                add_employee_to_attendance(employees[1])
+                st.session_state.page = 'select_company'
+                st.rerun()
+    else:
+        for i in range(0, len(employees), 3):
+            row_employees = employees[i:i+3]
+            if len(row_employees) == 2:  
+                _, col1, col2, _ = st.columns([1, 2, 2, 1]) 
+                with col1:
+                    if st.button(row_employees[0], key=f"employee_{row_employees[0]}_{i}", use_container_width=True):
+                        add_employee_to_attendance(row_employees[0])
+                        st.session_state.page = 'select_company'
+                        st.rerun()
+                with col2:
+                    if st.button(row_employees[1], key=f"employee_{row_employees[1]}_{i+1}", use_container_width=True):
+                        add_employee_to_attendance(row_employees[1])
+                        st.session_state.page = 'select_company'
+                        st.rerun()
+            elif len(row_employees) == 1: 
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:  
+                    if st.button(row_employees[0], key=f"employee_{row_employees[0]}_{i}", use_container_width=True):
+                        add_employee_to_attendance(row_employees[0])
+                        st.session_state.page = 'select_company'
+                        st.rerun()
+            else:  
+                cols = st.columns(3)
+                for j, employee in enumerate(row_employees):
+                    with cols[j]:
+                        if st.button(employee, key=f"employee_{employee}_{i+j}", use_container_width=True):
+                            add_employee_to_attendance(employee)
+                            st.session_state.page = 'select_company'
+                            st.rerun()
 
     if st.button(get_text("Zurück", "Back"), key="back_to_team", use_container_width=True):
         st.session_state.selected_team = None
@@ -301,25 +367,48 @@ def check_employee_pin():
         return True
 
 def display_employee_buttons(employees):
-    num_cols = min(3, len(employees))
-    num_rows = ceil(len(employees) / num_cols)
-    
-    container = st.container()
-    with container:
-        for row in range(num_rows):
-            cols = st.columns(num_cols)
-            for col in range(num_cols):
-                idx = row * num_cols + col
-                if idx < len(employees):
-                    with cols[col]:
-                        employee = employees[idx]
+    num_employees = len(employees)
+    if num_employees == 1:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:  
+            employee = employees[0]
+            is_added = employee in st.session_state.added_employees
+            button_key = f"employee_{employee}_0"
+            if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
+                handle_employee_selection(employee)
+            if is_added:
+                apply_selected_button_style(button_key)
+    elif num_employees == 2:
+        _, col1, col2, _ = st.columns([1, 2, 2, 1])
+        for i, employee in enumerate([employees[0], employees[1]]):
+            with col1 if i == 0 else col2:
+                is_added = employee in st.session_state.added_employees
+                button_key = f"employee_{employee}_{i}"
+                if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
+                    handle_employee_selection(employee)
+                if is_added:
+                    apply_selected_button_style(button_key)
+    else:
+        for i in range(0, len(employees), 3):
+            row_employees = employees[i:i+3]
+            if len(row_employees) == 2:  
+                _, col1, col2, _ = st.columns([1, 2, 2, 1])
+                for j, employee in enumerate(row_employees):
+                    with col1 if j == 0 else col2:
                         is_added = employee in st.session_state.added_employees
-                        button_key = f"employee_{employee}_{idx}"
-                        
-                        if st.button(employee, key=button_key, use_container_width=True, 
-                                     disabled=is_added):
+                        button_key = f"employee_{employee}_{i+j}"
+                        if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
                             handle_employee_selection(employee)
-                        
+                        if is_added:
+                            apply_selected_button_style(button_key)
+            else:  
+                cols = st.columns(3)
+                for j, employee in enumerate(row_employees):
+                    with cols[j]:
+                        is_added = employee in st.session_state.added_employees
+                        button_key = f"employee_{employee}_{i+j}"
+                        if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
+                            handle_employee_selection(employee)
                         if is_added:
                             apply_selected_button_style(button_key)
 
@@ -395,6 +484,36 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -19,7 +19,6 @@ def display_header():
         subtitle = get_text("Präsenz bei Firmenevents erfassen", "Record presence at company events")
         st.markdown(f"<div class='subtitle'>{subtitle}</div>", unsafe_allow_html=True)
         
-        # Banner
         script_dir = os.path.dirname(os.path.abspath(__file__))
         logo_dir = os.path.join(script_dir, "logos")
         banner_path = os.path.join(logo_dir, "HealthInnovatorsGroupLeipzig-Banner.png")
@@ -53,3 +52,11 @@ def display_header():
                 toggle_language()
 
     return header_container
+
+def display_language_toggle():
+    current_language = st.session_state.get('language', 'de')
+    language_text = "🇬🇧 EN" if current_language == 'de' else "🇩🇪 DE"
+    
+    with st.form(key="language_form", clear_on_submit=True):
+        if st.form_submit_button(language_text, use_container_width=True):
+            toggle_language()
