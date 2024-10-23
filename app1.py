@@ -8,7 +8,7 @@ from streamlit.runtime.scriptrunner import RerunException, StopException
 import asyncio
 import logging
 
-from auth import start_get_together, start_get_together_callback
+from auth import start_get_together_callback
 from ui_components import (
     select_company, select_team, select_employee, guest_info, 
 )
@@ -17,8 +17,7 @@ from session_state import initialize_session_state
 from styles import apply_custom_styles
 from utils import check_event_end
 from text_utils import get_text
-from utils import display_countdown_timer
-from admin import admin_settings, update_master_data, admin_panel
+from admin import admin_settings, update_master_data
 from attendance import auto_save_attendance
 
 local_tz = pytz.timezone('Europe/Berlin')
@@ -79,7 +78,6 @@ async def main():
         
         await check_event_end()
         
-        # Use asyncio.create_task for background tasks
         asyncio.create_task(periodic_auto_save())
         
         st_autorefresh(interval=30000, key="datarefresh")
@@ -93,7 +91,7 @@ async def main():
 async def periodic_auto_save():
     while True:
         auto_save_attendance()
-        await asyncio.sleep(300)  # Auto-save every 5 minutes
+        await asyncio.sleep(300) 
 
 if __name__ == "__main__":
     asyncio.run(main())

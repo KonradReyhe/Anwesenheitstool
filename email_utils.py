@@ -14,14 +14,29 @@ logger = logging.getLogger(__name__)
 
 def send_documents_to_accounting(zip_file_path):
     smtp_server = os.getenv('SMTP_SERVER')
-    smtp_port = int(os.getenv('SMTP_PORT'))
+    smtp_port = os.getenv('SMTP_PORT')
     sender_email = os.getenv('SENDER_EMAIL')
     sender_password = os.getenv('SENDER_PASSWORD')
-    accounting_email = st.session_state.accounting_email
+    accounting_email = st.session_state.get('accounting_email')
+
+    # Check if email configuration is set
+    if not all([smtp_server, smtp_port, sender_email, sender_password, accounting_email]):
+        logger.warning("Email configuration is incomplete. Skipping email sending.")
+        st.warning("Email configuration not found. Skipping sending email.")
+        return False
+
+    try:
+        smtp_port = int(smtp_port)
+    except ValueError:
+        logger.error("Invalid SMTP port number.")
+        st.error("Invalid SMTP port number.")
+        return False
 
     subject = get_text("GetTogether Anwesenheitsliste", "GetTogether Attendance List")
-    body = get_text("Anbei finden Sie die Anwesenheitsliste des GetTogether-Events.",
-                    "Please find attached the attendance list for the GetTogether event.")
+    body = get_text(
+        "Anbei finden Sie die Anwesenheitsliste des GetTogether-Events.",
+        "Please find attached the attendance list for the GetTogether event."
+    )
 
     message = MIMEMultipart()
     message["From"] = sender_email
@@ -32,11 +47,11 @@ def send_documents_to_accounting(zip_file_path):
     with open(zip_file_path, "rb") as attachment:
         part = MIMEBase("application", "octet-stream")
         part.set_payload(attachment.read())
-    
+
     encoders.encode_base64(part)
     part.add_header(
         "Content-Disposition",
-        f"attachment; filename= {os.path.basename(zip_file_path)}",
+        f"attachment; filename={os.path.basename(zip_file_path)}",
     )
     message.attach(part)
 
@@ -50,7 +65,8 @@ def send_documents_to_accounting(zip_file_path):
     except smtplib.SMTPException as e:
         logger.error(f"SMTP error occurred: {e}")
         st.error(f"Failed to send email: {e}")
+        return False
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
         st.error(f"An unexpected error occurred while sending email: {e}")
-    return False
+        return False

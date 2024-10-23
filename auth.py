@@ -11,7 +11,7 @@ def start_get_together(pin1, pin2, custom_event_name):
         st.session_state.update({
             'pin': pin1,
             'get_together_started': True,
-            'custom_event_name': custom_event_name if custom_event_name else "",
+            'custom_event_name': custom_event_name.strip() if custom_event_name else "",
             'page': 'select_company'
         })
         return True
@@ -55,3 +55,4 @@ def start_get_together_callback():
             st.session_state.datenschutz_pin_active = True
         st.session_state.page = 'select_company'
         st.rerun()
+

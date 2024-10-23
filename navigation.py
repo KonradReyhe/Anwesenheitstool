@@ -15,10 +15,9 @@ def go_back_to_company():
     st.session_state.page = 'select_company'
 
 def go_back_to_team_from_employee():
-    # Navigate back to the team selection screen
     st.session_state.page = 'select_team'
     st.session_state.selected_employee = None
-    st.session_state.show_admin_panel = False  # Close admin panel if open
+    st.session_state.show_admin_panel = False  
 
 def return_to_company_selection():
     st.session_state.page = 'select_company'

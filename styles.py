@@ -186,10 +186,9 @@ def apply_custom_styles():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-    # Add version number to the bottom of the page
     st.markdown(f"<div class='version-number'>v{VERSION}</div>", unsafe_allow_html=True)
 
-# You can add more custom style functions here if needed
+
 
 
 

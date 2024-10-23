@@ -4,7 +4,7 @@ import streamlit as st
 import os
 from text_utils import get_text
 
-@st.cache_data(ttl=3600)  # Cache for 1 hour
+@st.cache_data(ttl=3600)  
 def load_master_data():
     file_path = "Firmen_Teams_Mitarbeiter.csv"
     df = pd.read_csv(file_path)

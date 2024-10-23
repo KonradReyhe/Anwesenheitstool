@@ -44,7 +44,6 @@ def display_header():
             warning_message = get_text("Banner wurde nicht gefunden:", "Banner not found:")
             st.warning(f"{warning_message} {banner_path}")
 
-        # Admin settings button and language toggle
         col1, col2 = st.columns([9, 1])
         with col2:
             if st.session_state.get('get_together_started', False):

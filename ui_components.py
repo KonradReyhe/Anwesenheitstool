@@ -3,7 +3,7 @@
 import streamlit as st
 from text_utils import get_text
 from data_utils import get_companies, get_teams_for_company, get_employees_for_team
-from attendance import add_employee_to_attendance, undo_last_employee_selection, auto_save_attendance
+from attendance import add_employee_to_attendance, auto_save_attendance
 from timer import start_timer
 import time
 from PIL import Image
@@ -14,13 +14,12 @@ from datetime import datetime
 import os
 import base64
 from navigation import (
-    return_to_company_selection, go_back_to_team_from_employee,
-    select_company_callback, select_team_callback, go_back_to_company
+    return_to_company_selection,
+    select_company_callback, select_team_callback
 )
 import pytz
 from io import BytesIO
 from header import display_header
-from admin import admin_panel
 import threading
 
 
@@ -40,17 +39,14 @@ def handle_employee_selection(employee):
         start_timer()
 
 def display_success_messages():
-    if st.session_state.success_messages:
-        with st.container():
-            for message in st.session_state.success_messages:
-                st.success(message)
-        
-        current_time = time.time()
-        if st.session_state.last_message_time is None:
-            st.session_state.last_message_time = current_time
-        
-        # If 5 seconds have passed since the message was set, clear the messages
-        if current_time - st.session_state.last_message_time > 5:
+    current_time = time.time()
+    if st.session_state.success_messages and st.session_state.last_message_time:
+        elapsed_time = current_time - st.session_state.last_message_time
+        if elapsed_time < 5:
+            # Only display the most recent message
+            st.success(st.session_state.success_messages[-1])
+        else:
+            # Clear messages after 5 seconds
             st.session_state.success_messages = []
             st.session_state.last_message_time = None
 
@@ -75,10 +71,6 @@ def select_team():
         st.session_state.page = 'select_company'
         st.rerun()
 
-
-
-
-
 def apply_selected_button_style(button_key):
     st.markdown(f"""
         <style>
@@ -97,18 +89,16 @@ def signature_modal():
                 stroke_width=2,
                 stroke_color="#000000",
                 background_color="#ffffff",
-                height=100,  # Reduced height
-                width=300,   # Reduced width
+                height=100,  
+                width=300,  
                 drawing_mode="freedraw",
                 key="canvas",
             )
             submitted = st.form_submit_button(get_text("Unterschrift bestätigen", "Confirm Signature"))
         
         if submitted and canvas_result.image_data is not None:
-            # Process signature asynchronously
             threading.Thread(target=process_signature, args=(canvas_result.image_data, st.session_state.current_employee)).start()
             st.session_state.show_signature_modal = False
-            # Removed st.experimental_rerun()
 
 def process_signature(image_data, employee):
     signature_path = f"signatures/{employee}_{int(time.time())}.png"
@@ -147,7 +137,6 @@ def select_company():
     regular_companies = [c for c in companies if c not in ["iLOC", "Externe Partner", get_text("Gast", "Guest")]]
     special_companies = ["iLOC", "Externe Partner", get_text("Gast", "Guest")]
     
-    # Display regular companies
     company_rows = [regular_companies[i:i + num_cols] for i in range(0, len(regular_companies), num_cols)]
     for row in company_rows:
         cols = st.columns(num_cols)
@@ -155,17 +144,14 @@ def select_company():
             with col:
                 display_company_button(company)
     
-    # Add yellow dividing line with increased margin
     st.markdown("<hr style='border: 2px solid #f9c61e; margin-top: 40px; margin-bottom: 40px;'>", unsafe_allow_html=True)
     
-    # Display special companies with increased spacing
     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
     special_cols = st.columns(3)
     for i, company in enumerate(special_companies):
         with special_cols[i]:
             display_company_button(company)
     
-    # Add extra space at the bottom
     st.markdown("<div style='margin-bottom: 40px;'></div>", unsafe_allow_html=True)
 
 def display_company_button(company):
@@ -213,7 +199,7 @@ def guest_info():
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button(get_text("Bestätigen", "Confirm"), use_container_width=True):
+        if st.button(get_text("Besttigen", "Confirm"), use_container_width=True):
             submit_guest()
     with col2:
         if st.button(get_text("Zurück", "Back"), use_container_width=True):
@@ -233,6 +219,8 @@ def submit_guest():
         st.session_state.attendance_data.append(new_record)
         auto_save_attendance()
         
+        # Clear existing messages before adding new one
+        st.session_state.success_messages = []
         success_message = get_text(
             f'Gast "{st.session_state.guest_name}" wurde zur Anwesenheitsliste hinzugefügt.',
             f'Guest "{st.session_state.guest_name}" has been added to the attendance list.'
@@ -398,6 +386,12 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
 
 
 

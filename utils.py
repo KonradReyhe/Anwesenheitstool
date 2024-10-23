@@ -20,14 +20,19 @@ def create_zip_file(files, output_path):
             zipf.write(file, arcname=os.path.basename(file))
 
 def end_get_together():
-    from attendance import save_attendance  # Import inside the function
+    from attendance import save_attendance
     zip_file_name = save_attendance()
     if zip_file_name:
-        send_documents_to_accounting(zip_file_name)
-        os.remove(zip_file_name)  # Clean up after sending
+        email_sent = send_documents_to_accounting(zip_file_name)
+        if email_sent:
+            st.success(get_text("GetTogether wurde beendet und E-Mail wurde gesendet.", "GetTogether has been ended and email was sent."))
+        else:
+            st.warning(get_text("GetTogether wurde beendet, aber E-Mail wurde nicht gesendet.", "GetTogether has been ended, but email was not sent."))
+        os.remove(zip_file_name)  
+    else:
+        st.warning(get_text("Keine Anwesenheitsdaten zum Speichern.", "No attendance data to save."))
     st.session_state.get_together_started = False
     st.session_state.page = 'home'
-    st.success(get_text("GetTogether wurde beendet.", "GetTogether has been ended."))
     st.rerun()
 
 def schedule_event_end(end_time):
@@ -41,9 +46,9 @@ async def check_event_end():
             st.session_state.get_together_started = False
             st.session_state.page = 'home'
             st.rerun()
-    await asyncio.sleep(0)  # Allow other coroutines to run
+    await asyncio.sleep(0)  
 
-@st.cache_data(ttl=60)  # Cache for 1 minute
+@st.cache_data(ttl=60)  
 def display_countdown_timer():
     if 'scheduled_end_time' in st.session_state and st.session_state.scheduled_end_time:
         now = datetime.now()

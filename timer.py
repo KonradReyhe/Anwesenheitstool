@@ -2,7 +2,6 @@
 import streamlit as st
 import time
 from text_utils import get_text
-from navigation import return_to_company_selection
 
 def start_timer():
     st.session_state.timer_active = True

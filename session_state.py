@@ -43,7 +43,7 @@ def initialize_session_state():
     if 'last_activity_time' not in st.session_state:
         st.session_state.last_activity_time = time.time()
     if 'accounting_email' not in st.session_state:
-        st.session_state.accounting_email = ""
+        st.session_state.accounting_email = None 
     if 'timer_active' not in st.session_state:
         st.session_state.timer_active = False
     if 'countdown_start_time' not in st.session_state:

@@ -99,7 +99,7 @@ def confirm_end_get_together():
         else:
             st.error(get_text("Falscher PIN", "Incorrect PIN"))
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+@st.cache_data(ttl=300)  
 def admin_panel():
     st.markdown(f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>", unsafe_allow_html=True)
     
@@ -237,9 +237,13 @@ def end_get_together_page():
         get_text('Beendet das aktuelle GetTogether-Event und sendet eine CSV-Datei an die Buchhaltungs-E-Mail',
                  'Ends the current GetTogether event and sends a CSV file to the accounting email')
     )
+    pin_input = st.text_input(get_text("PIN eingeben", "Enter PIN"), type="password", key="end_gathering_pin")
     if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
-        end_get_together()
-        st.rerun()
+        if pin_input == st.session_state.pin:
+            end_get_together()
+            st.rerun()
+        else:
+            st.error(get_text("Falscher PIN", "Incorrect PIN"))
     back_to_admin_settings()
 
 def back_to_admin_settings():
@@ -281,6 +285,8 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
+
 
 
 
