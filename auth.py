@@ -4,6 +4,8 @@ import streamlit as st
 import time
 from config import INACTIVITY_TIMEOUT
 from text_utils import get_text
+from navigation import select_company_callback
+from header import display_header
 
 
 def start_get_together(pin1, pin2, custom_event_name):
@@ -35,17 +37,27 @@ def check_datenschutz_pin():
     return True
 
 def datenschutz_pin_page():
+    display_header()
+    
     st.markdown(f"<div class='sub-header'>{get_text('Datenschutz-PIN eingeben:', 'Enter Data Protection PIN:')}</div>", unsafe_allow_html=True)
-    entered_pin = st.text_input(get_text("PIN:", "PIN:"), type="password")
-    if st.button(get_text("Bestätigen", "Confirm")):
-        if entered_pin == st.session_state.datenschutz_pin:
-            st.session_state.locked = False
-            st.session_state.last_activity_time = time.time()
-            st.success(get_text("PIN korrekt. Zugriff gewährt.", "PIN correct. Access granted."))
-            return True
-        else:
-            st.error(get_text("Falsche PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
-    return False
+    
+    entered_pin = st.text_input(get_text("PIN:", "PIN:"), type="password", key="datenschutz_pin_input")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(get_text("Bestätigen", "Confirm"), use_container_width=True):
+            if entered_pin == st.session_state.datenschutz_pin:
+                select_company_callback(st.session_state.selected_company_temp)
+                st.session_state.page = 'select_team'
+                st.rerun()
+            else:
+                st.error(get_text("Falscher PIN. Bitte versuchen Sie es erneut.", "Incorrect PIN. Please try again."))
+    
+    with col2:
+        if st.button(get_text("Abbrechen", "Cancel"), use_container_width=True):
+            st.session_state.page = 'select_company'
+            st.session_state.selected_company_temp = None
+            st.rerun()
 
 def start_get_together_callback():
     if start_get_together(st.session_state.pin1, st.session_state.pin2, st.session_state.custom_event_name_input):

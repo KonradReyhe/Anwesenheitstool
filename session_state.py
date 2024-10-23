@@ -54,6 +54,8 @@ def initialize_session_state():
         st.session_state.custom_employee_messages = {}
     if 'show_admin_panel' not in st.session_state:
         st.session_state.show_admin_panel = False
+    if 'selected_company_temp' not in st.session_state:
+        st.session_state.selected_company_temp = None
 
 def initialize_employee_session_state():
     if 'current_company_team' not in st.session_state:
@@ -68,4 +70,5 @@ def initialize_employee_session_state():
         st.session_state.success_messages = []
     if 'last_message_time' not in st.session_state:
         st.session_state.last_message_time = None
+
 

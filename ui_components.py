@@ -20,6 +20,7 @@ import pytz
 from io import BytesIO
 from header import display_header
 import threading
+from auth import check_datenschutz_pin
 
 
 local_tz = pytz.timezone('Europe/Berlin')  
@@ -202,7 +203,11 @@ def display_company_button(company):
             unsafe_allow_html=True
         )
     if st.button(company, key=f"company_button_{company}", use_container_width=True):
-        select_company_callback(company)
+        if st.session_state.datenschutz_pin_active:
+            st.session_state.selected_company_temp = company
+            st.session_state.page = 'datenschutz_pin'
+        else:
+            select_company_callback(company)
         st.rerun()
 
 def image_to_base64(image):
@@ -484,6 +489,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
 
 
 

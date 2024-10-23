@@ -8,9 +8,9 @@ from streamlit.runtime.scriptrunner import RerunException, StopException
 import asyncio
 import logging
 
-from auth import start_get_together_callback
+from auth import start_get_together_callback, datenschutz_pin_page
 from ui_components import (
-    select_company, select_team, select_employee, guest_info, 
+    select_company, select_team, select_employee, guest_info
 )
 from header import display_header
 from session_state import initialize_session_state
@@ -63,6 +63,8 @@ def navigate():
             admin_settings()
         else:
             st.session_state.page = 'select_company'
+    elif st.session_state.page == 'datenschutz_pin':
+        datenschutz_pin_page()
     else:
         st.error("Invalid page")
 
