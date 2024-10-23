@@ -53,3 +53,5 @@ def initialize_session_state():
         st.session_state.all_employees_added_time = None
     if 'language' not in st.session_state:
         st.session_state.language = 'DE'  # Default to German
+    if 'datenschutz_pin_active' not in st.session_state:
+        st.session_state.datenschutz_pin_active = False

@@ -169,17 +169,32 @@ def change_datenschutz_pin_page():
         get_text('Datenschutz PIN ändern', 'Change Data Protection PIN'),
         get_text('PIN für den Zugriff auf geschützte Daten', 'PIN for accessing protected data')
     )
-    new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
-    confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
-    if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN")):
-        if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
-            st.session_state.datenschutz_pin = new_datenschutz_pin
-            st.session_state.datenschutz_pin_active = True
-            st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
-        elif not new_datenschutz_pin:
-            st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
-        else:
-            st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+    
+    # Add a checkbox to enable/disable Datenschutz PIN
+    datenschutz_pin_active = st.checkbox(
+        get_text("Datenschutz PIN aktivieren", "Enable Data Protection PIN"),
+        value=st.session_state.datenschutz_pin_active
+    )
+
+    if datenschutz_pin_active:
+        new_datenschutz_pin = st.text_input(get_text("Neuer Datenschutz PIN", "New Data Protection PIN"), type="password")
+        confirm_new_datenschutz_pin = st.text_input(get_text("Neuen Datenschutz PIN bestätigen", "Confirm New Data Protection PIN"), type="password")
+        
+        if st.button(get_text("Datenschutz PIN aktualisieren", "Update Data Protection PIN")):
+            if new_datenschutz_pin and new_datenschutz_pin == confirm_new_datenschutz_pin:
+                st.session_state.datenschutz_pin = new_datenschutz_pin
+                st.session_state.datenschutz_pin_active = True
+                st.success(get_text("Datenschutz PIN wurde aktualisiert und aktiviert.", "Data Protection PIN has been updated and enabled."))
+            elif not new_datenschutz_pin:
+                st.error(get_text("Bitte geben Sie einen gültigen PIN ein.", "Please enter a valid PIN."))
+            else:
+                st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
+    else:
+        if st.button(get_text("Datenschutz PIN deaktivieren", "Disable Data Protection PIN")):
+            st.session_state.datenschutz_pin_active = False
+            st.session_state.datenschutz_pin = None
+            st.success(get_text("Datenschutz PIN wurde deaktiviert.", "Data Protection PIN has been disabled."))
+
     back_to_admin_settings()
 
 def remove_participants_page():
@@ -285,6 +300,7 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
 
 
 
