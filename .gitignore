@@ -1,6 +1,18 @@
-# Ignore virtual environment
+# Virtual Environment
 venv/
-
-# Ignore Python cache and compiled files
-__pycache__/
+venv/**/*
+**/venv/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
