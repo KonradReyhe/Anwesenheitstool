@@ -1,0 +1,15 @@
+# Open with notepad
+notepad .gitattributes
+
+# Show these files
+*.py diff
+*.json diff
+*.csv diff
+*.yaml diff
+*.yml diff
+requirements.txt diff
+
+# Hide these files
+venv/** -diff
+*.pyc -diff
+__pycache__/** -diff
