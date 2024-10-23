@@ -114,16 +114,25 @@ def select_company():
     display_header()
     
     if st.session_state.show_admin_panel:
-        entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
-        if st.button("Enter", key="admin_pin_enter"):
-            if entered_pin == st.session_state.pin:
-                st.session_state.admin_access_granted = True
-                st.session_state.page = 'admin_settings'
-            else:
-                st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+        with st.form(key="admin_form"):
+            entered_pin = st.text_input(
+                get_text("Admin PIN eingeben", "Enter Admin PIN"), 
+                type="password", 
+                key="admin_pin_input"
+            )
+            submit = st.form_submit_button("Enter")
+            
+            if submit:
+                if entered_pin == st.session_state.pin:
+                    st.session_state.admin_access_granted = True
+                    st.session_state.page = 'admin_settings'
+                    st.rerun()
+                else:
+                    st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
+        
         if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
             st.session_state.show_admin_panel = False
-    
+            st.rerun()
     
     display_success_messages()
     
@@ -386,6 +395,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
