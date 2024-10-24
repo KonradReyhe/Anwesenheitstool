@@ -2,14 +2,18 @@
 
 import streamlit as st
 import time
+import hmac
 from config import INACTIVITY_TIMEOUT
 from text_utils import get_text
 from navigation import select_company_callback
 from header import display_header
 
 
+def compare_digest(a, b):
+    return hmac.compare_digest(a.encode(), b.encode())
+
 def start_get_together(pin1, pin2, custom_event_name):
-    if pin1 and pin2 and pin1 == pin2:
+    if pin1 and pin2 and compare_digest(pin1, pin2):
         st.session_state.update({
             'pin': pin1,
             'get_together_started': True,
@@ -20,7 +24,7 @@ def start_get_together(pin1, pin2, custom_event_name):
     else:
         if not pin1 or not pin2:
             st.error(get_text("Bitte beide PIN-Felder ausfüllen.", "Please fill in both PIN fields."))
-        elif pin1 != pin2:
+        elif not compare_digest(pin1, pin2):
             st.error(get_text("Die eingegebenen PINs stimmen nicht überein.", "The entered PINs do not match."))
         return False
 
@@ -67,4 +71,3 @@ def start_get_together_callback():
             st.session_state.datenschutz_pin_active = True
         st.session_state.page = 'select_company'
         st.rerun()
-

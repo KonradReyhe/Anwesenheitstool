@@ -6,6 +6,7 @@ from text_utils import get_text
 from utils import end_get_together
 from header import display_header
 from shared_components import display_styled_admin_page, back_to_admin_settings
+from auth import compare_digest
 
 def admin_settings():
     display_header()
@@ -200,7 +201,7 @@ def admin_panel():
         submit_button = st.form_submit_button(get_text("Enter", "Enter"))
 
     if submit_button:
-        if entered_pin == st.session_state.pin:
+        if compare_digest(entered_pin, st.session_state.pin):
             st.session_state.admin_access_granted = True
             st.session_state.page = 'admin_settings'
             st.rerun()

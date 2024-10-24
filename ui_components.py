@@ -49,6 +49,11 @@ def display_success_messages():
             st.session_state.success_messages = []
             st.session_state.last_message_time = None
 
+def create_team_button(team):
+    if st.button(team, key=f"team_{team}", use_container_width=True):
+        select_team_callback(team)
+        st.rerun()
+
 def select_team():
     display_header()
     display_company_team_info()
@@ -59,40 +64,28 @@ def select_team():
     num_teams = len(teams)
     if num_teams == 1:
         col1, col2, col3 = st.columns([1, 2, 1])
-        with col2: 
-            if st.button(teams[0], key=f"team_{teams[0]}", use_container_width=True):
-                select_team_callback(teams[0])
-                st.rerun()
-    elif num_teams == 2:
-        _, col1, col2, _ = st.columns([1, 2, 2, 1]) 
-        with col1:
-            if st.button(teams[0], key=f"team_{teams[0]}", use_container_width=True):
-                select_team_callback(teams[0])
-                st.rerun()
         with col2:
-            if st.button(teams[1], key=f"team_{teams[1]}", use_container_width=True):
-                select_team_callback(teams[1])
-                st.rerun()
+            create_team_button(teams[0])
+    elif num_teams == 2:
+        _, col1, col2, _ = st.columns([1, 2, 2, 1])
+        with col1:
+            create_team_button(teams[0])
+        with col2:
+            create_team_button(teams[1])
     else:
         for i in range(0, len(teams), 3):
             row_teams = teams[i:i+3]
-            if len(row_teams) == 2:  
-                _, col1, col2, _ = st.columns([1, 2, 2, 1])  
+            if len(row_teams) == 2:
+                _, col1, col2, _ = st.columns([1, 2, 2, 1])
                 with col1:
-                    if st.button(row_teams[0], key=f"team_{row_teams[0]}", use_container_width=True):
-                        select_team_callback(row_teams[0])
-                        st.rerun()
+                    create_team_button(row_teams[0])
                 with col2:
-                    if st.button(row_teams[1], key=f"team_{row_teams[1]}", use_container_width=True):
-                        select_team_callback(row_teams[1])
-                        st.rerun()
-            else:  
+                    create_team_button(row_teams[1])
+            else:
                 cols = st.columns(3)
                 for j, team in enumerate(row_teams):
                     with cols[j]:
-                        if st.button(team, key=f"team_{team}", use_container_width=True):
-                            select_team_callback(team)
-                            st.rerun()
+                        create_team_button(team)
 
     if st.button(get_text("Zurück", "Back"), key="back_to_company", use_container_width=True):
         st.session_state.selected_company = None
@@ -326,21 +319,6 @@ def submit_guest():
     else:
         st.error(get_text("Bitte geben Sie mindestens den Namen des Gastes ein.", "Please enter at least the guest's name."))
 
-__all__ = [
-    'select_company',
-    'select_team',
-    'select_employee',
-    'guest_info',
-    'display_back_button',
-    'display_company_team_info',
-    'display_employee_buttons',
-    'handle_signature_modal',
-    'display_success_messages',
-    'handle_undo_last_selection',
-    'signature_modal',
-]
-
-
 def select_employee():
     display_header()
     display_company_team_info()
@@ -401,6 +379,21 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+__all__ = [
+    'select_company',
+    'select_team',
+    'select_employee',
+    'guest_info',
+    'display_back_button',
+    'display_company_team_info',
+    'display_employee_buttons',
+    'handle_signature_modal',
+    'display_success_messages',
+    'handle_undo_last_selection',
+    'signature_modal',
+]
+
 
 
 
