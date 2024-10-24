@@ -36,6 +36,7 @@ def admin_settings():
             ("change_pin", get_text("PIN ändern", "Change PIN")),
             ("change_datenschutz_pin", get_text("Datenschutz PIN ändern", "Change Data Protection PIN")),
             ("remove_participants", get_text("Teilnehmer entfernen", "Remove Participants")),
+            ("toggle_signature_requirement", get_text("Unterschriftspflicht ändern", "Toggle Signature Requirement")),
             ("end_get_together", get_text("GetTogether beenden", "End GetTogether")),
         ]
 
@@ -50,16 +51,45 @@ def admin_settings():
             st.session_state.admin_access_granted = False
             st.rerun()
     else:
-        if st.session_state.admin_page == 'change_event_name':
-            change_event_name_page()
-        elif st.session_state.admin_page == 'change_pin':
-            change_pin_page()
-        elif st.session_state.admin_page == 'change_datenschutz_pin':
-            change_datenschutz_pin_page()
-        elif st.session_state.admin_page == 'remove_participants':
-            remove_participants_page()
-        elif st.session_state.admin_page == 'end_get_together':
+        admin_page = st.session_state.admin_page
+        if admin_page == "toggle_signature_requirement":
+            toggle_signature_requirement_page()
+        elif admin_page == "end_get_together":
             end_get_together_page()
+        # Handle other admin pages...
+
+def toggle_signature_requirement_page():
+    display_styled_admin_page(
+        get_text('Unterschriftspflicht ändern', 'Toggle Signature Requirement'),
+        get_text('Hier können Sie die Unterschriftspflicht für Mitarbeiter aktivieren oder deaktivieren.',
+                 'Here you can enable or disable the signature requirement for employees.')
+    )
+    current_status = st.session_state.get('require_signature', False)
+    new_status = st.checkbox(
+        get_text('Unterschrift von Mitarbeitern verlangen', 'Require employee signature'),
+        value=current_status
+    )
+    if st.button(get_text('Speichern', 'Save'), key='save_signature_requirement'):
+        st.session_state.require_signature = new_status
+        st.success(get_text('Die Unterschriftspflicht wurde aktualisiert.', 'Signature requirement has been updated.'))
+        st.session_state.admin_page = None
+        st.rerun()
+    back_to_admin_settings()
+
+def end_get_together_page():
+    display_styled_admin_page(
+        get_text('GetTogether beenden', 'End GetTogether'),
+        get_text('Beendet das aktuelle GetTogether-Event und sendet eine CSV-Datei und die Unterschriften-PDF an die Buchhaltungs-E-Mail',
+                 'Ends the current GetTogether event and sends a CSV file and the signatures PDF to the accounting email.')
+    )
+    pin_input = st.text_input(get_text("PIN eingeben", "Enter PIN"), type="password", key="end_gathering_pin")
+    if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
+        if pin_input == st.session_state.pin:
+            end_get_together()
+            st.rerun()
+        else:
+            st.error(get_text("Falscher PIN", "Incorrect PIN"))
+    back_to_admin_settings()
 
 def update_master_data():
     st.subheader(get_text("Stammdaten aktualisieren", "Update Master Data"))
@@ -246,21 +276,6 @@ def remove_participants_page():
         st.info(get_text("Keine Teilnehmer vorhanden.", "No participants available."))
     back_to_admin_settings()
 
-def end_get_together_page():
-    display_styled_admin_page(
-        get_text('GetTogether beenden', 'End GetTogether'),
-        get_text('Beendet das aktuelle GetTogether-Event und sendet eine CSV-Datei an die Buchhaltungs-E-Mail',
-                 'Ends the current GetTogether event and sends a CSV file to the accounting email')
-    )
-    pin_input = st.text_input(get_text("PIN eingeben", "Enter PIN"), type="password", key="end_gathering_pin")
-    if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
-        if pin_input == st.session_state.pin:
-            end_get_together()
-            st.rerun()
-        else:
-            st.error(get_text("Falscher PIN", "Incorrect PIN"))
-    back_to_admin_settings()
-
 def back_to_admin_settings():
     if st.button(get_text("Zurück zu Admin-Einstellungen", "Back to Admin Settings")):
         st.session_state.admin_page = None
@@ -300,6 +315,7 @@ def confirm_removal(name):
         get_text("Ja, entfernen", "Yes, remove"),
         key=f"confirm_{name}"
     )
+
 
 
 

@@ -28,7 +28,7 @@ def end_get_together():
             st.success(get_text("GetTogether wurde beendet und E-Mail wurde gesendet.", "GetTogether has been ended and email was sent."))
         else:
             st.warning(get_text("GetTogether wurde beendet, aber E-Mail wurde nicht gesendet.", "GetTogether has been ended, but email was not sent."))
-        os.remove(zip_file_name)  
+        os.remove(zip_file_name)
     else:
         st.warning(get_text("Keine Anwesenheitsdaten zum Speichern.", "No attendance data to save."))
     st.session_state.get_together_started = False

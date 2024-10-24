@@ -147,7 +147,6 @@ def process_signature(image_data, employee):
     signature_filename = f"{employee}_{timestamp}.png"
     signature_path = os.path.join(signature_dir, signature_filename)
     
-    # Convert image to RGB before saving
     image = Image.fromarray(image_data.astype('uint8')).convert('RGB')
     image.save(signature_path)
     
@@ -161,25 +160,13 @@ def update_signatures_pdf(signature_dir):
 
     pdf_path = os.path.join(signature_dir, "combined_signatures.pdf")
 
-    # Get all signature image paths
     signature_images = sorted(glob.glob(os.path.join(signature_dir, "*.png")))
-
-    # Exclude any non-signature images
     signature_images = [
         img for img in signature_images if not img.endswith("combined_signatures.pdf.png")
     ]
 
-    # Make sure all images are in RGB format
-    rgb_images = []
-    for img_path in signature_images:
-        with Image.open(img_path) as img:
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-                img.save(img_path)
-        rgb_images.append(img_path)
-
     with open(pdf_path, "wb") as f:
-        f.write(img2pdf.convert(rgb_images))
+        f.write(img2pdf.convert(signature_images))
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -397,6 +384,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 

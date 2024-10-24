@@ -58,27 +58,25 @@ def auto_save_attendance():
         st.session_state.last_auto_save = datetime.now()
 
 def save_attendance():
-    if st.session_state.attendance_data:
-        df = pd.DataFrame(st.session_state.attendance_data)
-        
-        if 'ID' in df.columns:
-            df = df.drop(columns=['ID'])
-        
-        timestamp = datetime.now().strftime("%Y%m%d")
-        if st.session_state.custom_event_name:
-            sanitized_event_name = st.session_state.custom_event_name.replace(" ", "_")
-            csv_file_name = f"GetTogether_{sanitized_event_name}_{timestamp}.csv"
-            zip_file_name = f"GetTogether_{sanitized_event_name}_{timestamp}.zip"
-        else:
-            csv_file_name = f"GetTogether_{timestamp}.csv"
-            zip_file_name = f"GetTogether_{timestamp}.zip"
-        
-        df.to_csv(csv_file_name, index=False, encoding='utf-8')
-        with zipfile.ZipFile(zip_file_name, 'w') as zipf:
-            zipf.write(csv_file_name, arcname=csv_file_name)
-        os.remove(csv_file_name)  
-        return zip_file_name
-    return False
+    if not st.session_state.attendance_data:
+        return None
+
+    attendance_df = pd.DataFrame(st.session_state.attendance_data)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    attendance_csv = f"Anwesenheit_{timestamp}.csv"
+    attendance_df.to_csv(attendance_csv, index=False)
+    
+    zip_file_name = f"GetTogether_{timestamp}.zip"
+    with zipfile.ZipFile(zip_file_name, 'w') as zipf:
+        zipf.write(attendance_csv)
+        # Include the combined signatures PDF if it exists
+        signature_pdf_path = os.path.join('signatures', 'combined_signatures.pdf')
+        if os.path.exists(signature_pdf_path):
+            zipf.write(signature_pdf_path, arcname='Unterschriften.pdf')
+    
+    # Clean up
+    os.remove(attendance_csv)
+    return zip_file_name
 
 def undo_last_employee_selection():
     if st.session_state.added_employees:
