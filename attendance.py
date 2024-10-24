@@ -34,8 +34,6 @@ def add_employee_to_attendance(employee, from_signature_modal=False):
     st.session_state.added_employees.append(employee)
     auto_save_attendance()
     add_success_message(employee)
-    if not from_signature_modal and st.session_state.require_signature:
-        st.session_state.show_signature_modal = True
     start_timer()
 
 def auto_save_attendance():

@@ -34,6 +34,9 @@ def handle_employee_selection(employee):
             st.rerun()
         else:
             add_employee_to_attendance(employee)
+            # Show success message and return to company selection
+            st.session_state.selected_team = None
+            st.session_state.page = 'select_company'
             st.rerun()
 
 def display_success_messages():
@@ -127,7 +130,10 @@ def signature_modal():
                     process_signature(canvas_result.image_data, st.session_state.current_employee)
                     st.session_state.show_signature_modal = False
                     st.session_state.modal_open = False
-                    add_employee_to_attendance(st.session_state.current_employee, from_signature_modal=True)
+                    add_employee_to_attendance(st.session_state.current_employee)
+                    # Navigate back to company selection and display success message
+                    st.session_state.selected_team = None
+                    st.session_state.page = 'select_company'
                     st.rerun()
                 else:
                     st.warning(get_text("Bitte zeichnen Sie Ihre Unterschrift.", "Please draw your signature."))
@@ -355,6 +361,8 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
 
 
 
