@@ -13,7 +13,7 @@ def check_company_team_change():
         st.session_state.success_messages = []
         st.session_state.last_message_time = None
         st.session_state.all_employees_added_time = None
-        st.experimental_rerun()  
+        st.rerun()  
 
 def delete_attendance_record():
     st.session_state.attendance_data = []

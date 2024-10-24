@@ -19,7 +19,7 @@ def add_success_message(employee):
     st.session_state.success_messages.append(new_message)
     st.session_state.last_message_time = time.time()
 
-def add_employee_to_attendance(employee):
+def add_employee_to_attendance(employee, from_signature_modal=False):
     now = datetime.now()
     employee_initials = ''.join([name[0].upper() for name in employee.split()])[:3]
     short_id = f"{employee_initials}{now.strftime('%H%M%S')}"
@@ -34,13 +34,9 @@ def add_employee_to_attendance(employee):
     st.session_state.added_employees.append(employee)
     auto_save_attendance()
     add_success_message(employee)
-    
-    if st.session_state.require_signature:
+    if not from_signature_modal and st.session_state.require_signature:
         st.session_state.show_signature_modal = True
-    
     start_timer()
-
-
 
 def auto_save_attendance():
     if st.session_state.attendance_data:
@@ -115,4 +111,3 @@ __all__ = [
     'save_attendance',
     'undo_last_employee_selection'
 ]
-

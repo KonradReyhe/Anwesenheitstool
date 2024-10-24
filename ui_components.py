@@ -28,15 +28,13 @@ local_tz = pytz.timezone('Europe/Berlin')
 
 def handle_employee_selection(employee):
     if employee not in st.session_state.added_employees:
-        add_employee_to_attendance(employee)
         st.session_state.current_employee = employee
-        
         if st.session_state.require_signature:
             st.session_state.show_signature_modal = True
-        
-        
-        
-        start_timer()
+            st.rerun()
+        else:
+            add_employee_to_attendance(employee)
+            st.rerun()
 
 def display_success_messages():
     current_time = time.time()
@@ -110,28 +108,36 @@ def apply_selected_button_style(button_key):
 
 def signature_modal():
     if st.session_state.show_signature_modal:
+        st.session_state.modal_open = True
         with st.form(key='signature_form'):
             st.write(get_text("Bitte unterschreiben Sie hier:", "Please sign here:"))
             canvas_result = st_canvas(
                 stroke_width=2,
                 stroke_color="#000000",
                 background_color="#ffffff",
-                height=100,  
-                width=300,  
+                height=200,
+                width=400,
                 drawing_mode="freedraw",
                 key="canvas",
+                update_streamlit=True,
             )
             submitted = st.form_submit_button(get_text("Unterschrift bestätigen", "Confirm Signature"))
-        
-        if submitted and canvas_result.image_data is not None:
-            threading.Thread(target=process_signature, args=(canvas_result.image_data, st.session_state.current_employee)).start()
-            st.session_state.show_signature_modal = False
+            if submitted:
+                if canvas_result.image_data is not None:
+                    process_signature(canvas_result.image_data, st.session_state.current_employee)
+                    st.session_state.show_signature_modal = False
+                    st.session_state.modal_open = False
+                    add_employee_to_attendance(st.session_state.current_employee, from_signature_modal=True)
+                    st.rerun()
+                else:
+                    st.warning(get_text("Bitte zeichnen Sie Ihre Unterschrift.", "Please draw your signature."))
 
 def process_signature(image_data, employee):
-    signature_path = f"signatures/{employee}_{int(time.time())}.png"
+    signature_dir = "signatures"
+    os.makedirs(signature_dir, exist_ok=True)
+    signature_path = os.path.join(signature_dir, f"{employee}_{int(time.time())}.png")
     Image.fromarray(image_data.astype('uint8')).save(signature_path)
     st.session_state.signatures[employee] = signature_path
-    add_employee_to_attendance(employee)
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -288,76 +294,42 @@ __all__ = [
 
 
 def select_employee():
-    if not check_employee_pin():
-        return
-
     display_header()
     display_company_team_info()
-    
+
     employees = get_employees_for_team(st.session_state.selected_company, st.session_state.selected_team)
     if not employees:
         st.warning(get_text("Keine Mitarbeiter für dieses Team gefunden.", "No employees found for this team."))
         return
 
     st.markdown(f"<div class='sub-header'>{get_text('Mitarbeiter auswählen:', 'Select employee:')}</div>", unsafe_allow_html=True)
-    
-    num_employees = len(employees)
-    if num_employees == 1:
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:  
-            if st.button(employees[0], key=f"employee_{employees[0]}_0", use_container_width=True):
-                add_employee_to_attendance(employees[0])
-                st.session_state.page = 'select_company'
-                st.rerun()
-    elif num_employees == 2:
-        _, col1, col2, _ = st.columns([1, 2, 2, 1])
-        with col1:
-            if st.button(employees[0], key=f"employee_{employees[0]}_0", use_container_width=True):
-                add_employee_to_attendance(employees[0])
-                st.session_state.page = 'select_company'
-                st.rerun()
-        with col2:
-            if st.button(employees[1], key=f"employee_{employees[1]}_1", use_container_width=True):
-                add_employee_to_attendance(employees[1])
-                st.session_state.page = 'select_company'
-                st.rerun()
-    else:
-        for i in range(0, len(employees), 3):
-            row_employees = employees[i:i+3]
-            if len(row_employees) == 2:  
-                _, col1, col2, _ = st.columns([1, 2, 2, 1]) 
-                with col1:
-                    if st.button(row_employees[0], key=f"employee_{row_employees[0]}_{i}", use_container_width=True):
-                        add_employee_to_attendance(row_employees[0])
-                        st.session_state.page = 'select_company'
-                        st.rerun()
-                with col2:
-                    if st.button(row_employees[1], key=f"employee_{row_employees[1]}_{i+1}", use_container_width=True):
-                        add_employee_to_attendance(row_employees[1])
-                        st.session_state.page = 'select_company'
-                        st.rerun()
-            elif len(row_employees) == 1: 
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:  
-                    if st.button(row_employees[0], key=f"employee_{row_employees[0]}_{i}", use_container_width=True):
-                        add_employee_to_attendance(row_employees[0])
-                        st.session_state.page = 'select_company'
-                        st.rerun()
-            else:  
-                cols = st.columns(3)
-                for j, employee in enumerate(row_employees):
-                    with cols[j]:
-                        if st.button(employee, key=f"employee_{employee}_{i+j}", use_container_width=True):
-                            add_employee_to_attendance(employee)
-                            st.session_state.page = 'select_company'
-                            st.rerun()
+
+    display_employee_buttons(employees)
+    handle_signature_modal()
 
     if st.button(get_text("Zurück", "Back"), key="back_to_team", use_container_width=True):
         st.session_state.selected_team = None
         st.session_state.page = 'select_team'
         st.rerun()
 
-    
+def display_employee_buttons(employees):
+    num_employees = len(employees)
+    cols_per_row = 3
+    employee_counter = 0  # Counter to ensure unique keys
+
+    # Split employees into rows based on cols_per_row
+    rows = [employees[i:i + cols_per_row] for i in range(0, num_employees, cols_per_row)]
+
+    for row_employees in rows:
+        cols = st.columns(len(row_employees))
+        for idx, employee in enumerate(row_employees):
+            with cols[idx]:
+                is_added = employee in st.session_state.added_employees
+                # Create a unique key using the counter
+                button_key = f"employee_{employee_counter}"
+                if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
+                    handle_employee_selection(employee)
+                employee_counter += 1  # Increment counter after creating the button
 
 def check_employee_pin():
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
@@ -371,112 +343,6 @@ def check_employee_pin():
     else:
         return True
 
-def display_employee_buttons(employees):
-    num_employees = len(employees)
-    if num_employees == 1:
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:  
-            employee = employees[0]
-            is_added = employee in st.session_state.added_employees
-            button_key = f"employee_{employee}_0"
-            if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
-                handle_employee_selection(employee)
-            if is_added:
-                apply_selected_button_style(button_key)
-    elif num_employees == 2:
-        _, col1, col2, _ = st.columns([1, 2, 2, 1])
-        for i, employee in enumerate([employees[0], employees[1]]):
-            with col1 if i == 0 else col2:
-                is_added = employee in st.session_state.added_employees
-                button_key = f"employee_{employee}_{i}"
-                if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
-                    handle_employee_selection(employee)
-                if is_added:
-                    apply_selected_button_style(button_key)
-    else:
-        for i in range(0, len(employees), 3):
-            row_employees = employees[i:i+3]
-            if len(row_employees) == 2:  
-                _, col1, col2, _ = st.columns([1, 2, 2, 1])
-                for j, employee in enumerate(row_employees):
-                    with col1 if j == 0 else col2:
-                        is_added = employee in st.session_state.added_employees
-                        button_key = f"employee_{employee}_{i+j}"
-                        if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
-                            handle_employee_selection(employee)
-                        if is_added:
-                            apply_selected_button_style(button_key)
-            else:  
-                cols = st.columns(3)
-                for j, employee in enumerate(row_employees):
-                    with cols[j]:
-                        is_added = employee in st.session_state.added_employees
-                        button_key = f"employee_{employee}_{i+j}"
-                        if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
-                            handle_employee_selection(employee)
-                        if is_added:
-                            apply_selected_button_style(button_key)
-
-def select_employee_callback(employee):
-    now = datetime.now()
-    new_record = {
-        'ID': f"{employee}_{now.strftime('%Y%m%d%H%M%S')}",
-        'Name': employee,
-        'Firma': st.session_state.selected_company,
-        'Team': st.session_state.selected_team,
-        'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.session_state.attendance_data.append(new_record)
-    auto_save_attendance()
-    
-
-def check_all_employees_added(employees):
-    if st.session_state.all_employees_added_time:
-        time_since_all_added = time.time() - st.session_state.all_employees_added_time
-        if time_since_all_added <= 5:
-            st.info(get_text(f"Alle Teammitglieder wurden hinzugefügt. Kehre in {5 - int(time_since_all_added)} Sekunden zur Firmenauswahl zurück...",
-                             f"All team members have been added. Returning to company selection in {5 - int(time_since_all_added)} seconds..."))
-        else:
-            return_to_company_selection()
-    elif set(st.session_state.added_employees) == set(employees):
-        st.session_state.all_employees_added_time = time.time()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 st.markdown("""
 <style>
     .stButton>button {
@@ -489,6 +355,17 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
