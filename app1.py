@@ -3,7 +3,6 @@
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import pytz
-import sys
 from streamlit.runtime.scriptrunner import RerunException, StopException
 import asyncio
 import logging
@@ -17,7 +16,7 @@ from session_state import initialize_session_state
 from styles import apply_custom_styles
 from utils import check_event_end
 from text_utils import get_text
-from admin import admin_settings, update_master_data
+from admin import admin_settings
 from attendance import auto_save_attendance
 
 local_tz = pytz.timezone('Europe/Berlin')
@@ -56,8 +55,6 @@ def navigate():
         select_employee()
     elif st.session_state.page == 'guest_info':
         guest_info()
-    elif st.session_state.page == 'update_master_data':
-        update_master_data()
     elif st.session_state.page == 'admin_settings':
         if st.session_state.get('admin_access_granted', False):
             admin_settings()

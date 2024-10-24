@@ -7,7 +7,7 @@ def initialize_session_state():
     if 'page' not in st.session_state:
         st.session_state.page = 'home'
     if 'language' not in st.session_state:
-        st.session_state.language = 'de'  # Default to German
+        st.session_state.language = 'de'  
     if 'get_together_started' not in st.session_state:
         st.session_state.get_together_started = False
     if 'pin' not in st.session_state:

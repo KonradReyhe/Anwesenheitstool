@@ -4,11 +4,9 @@ import streamlit as st
 from text_utils import get_text
 from data_utils import get_companies, get_teams_for_company, get_employees_for_team
 from attendance import add_employee_to_attendance, auto_save_attendance
-from timer import start_timer
 import time
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
-from math import ceil
 from datetime import datetime
 import os
 import base64
@@ -19,13 +17,11 @@ from navigation import (
 import pytz
 from io import BytesIO
 from header import display_header
-import threading
-from auth import check_datenschutz_pin
-import img2pdf
-import glob
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
+import io
 
 
 local_tz = pytz.timezone('Europe/Berlin')  
@@ -39,7 +35,6 @@ def handle_employee_selection(employee):
             st.rerun()
         else:
             add_employee_to_attendance(employee)
-            # Show success message and return to company selection
             st.session_state.selected_team = None
             st.session_state.page = 'select_company'
             st.rerun()
@@ -136,7 +131,6 @@ def signature_modal():
                     st.session_state.show_signature_modal = False
                     st.session_state.modal_open = False
                     add_employee_to_attendance(st.session_state.current_employee)
-                    # Navigate back to company selection and display success message
                     st.session_state.selected_team = None
                     st.session_state.page = 'select_company'
                     st.rerun()
@@ -144,45 +138,54 @@ def signature_modal():
                     st.warning(get_text("Bitte zeichnen Sie Ihre Unterschrift.", "Please draw your signature."))
 
 def process_signature(image_data, employee):
-    signature_dir = "signatures"
-    os.makedirs(signature_dir, exist_ok=True)
-    timestamp = int(time.time())
-    signature_filename = f"{employee}_{timestamp}.png"
-    signature_path = os.path.join(signature_dir, signature_filename)
-    
+    if 'signature_data' not in st.session_state:
+        st.session_state.signature_data = []
+
     image = Image.fromarray(image_data.astype('uint8')).convert('RGB')
-    image.save(signature_path)
-    
-    st.session_state.signatures[employee] = signature_path
 
-    update_signatures_pdf(signature_dir)
+    st.session_state.signature_data.append((employee, image))
 
-def update_signatures_pdf(signature_dir):
-    pdf_path = os.path.join(signature_dir, "combined_signatures.pdf")
+    update_signatures_pdf()
 
-    # Get all signature image paths
-    signature_images = sorted(glob.glob(os.path.join(signature_dir, "*.png")))
-    signature_images = [
-        img for img in signature_images if not img.endswith("combined_signatures.pdf.png")
-    ]
+def update_signatures_pdf():
+    if not st.session_state.signature_data:
+        return
+
+    os.makedirs("data", exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if st.session_state.custom_event_name:
+        sanitized_event_name = st.session_state.custom_event_name.replace(" ", "_")
+        pdf_filename = f"GetTogether_{sanitized_event_name}_{timestamp}_signatures.pdf"
+    else:
+        pdf_filename = f"GetTogether_{timestamp}_signatures.pdf"
+
+    pdf_path = os.path.join("data", pdf_filename)
 
     c = canvas.Canvas(pdf_path, pagesize=A4)
 
-    for img_path in signature_images:
-        # Extract the employee name from the filename
-        img_filename = os.path.basename(img_path)
-        employee_name = img_filename.rsplit('_', 1)[0]
+    for employee_name, image in st.session_state.signature_data:
+        img_width, img_height = image.size
+        aspect = img_height / float(img_width)
 
-        # Add employee name
+        desired_width = 16 * cm
+        desired_height = desired_width * aspect
+
         c.setFont("Helvetica", 14)
         c.drawString(2 * cm, 25 * cm, f"Name: {employee_name}")
 
-        # Add signature image
-        c.drawImage(img_path, 2 * cm, 10 * cm, width=16 * cm, height=12 * cm, preserveAspectRatio=True)
+        img_buffer = io.BytesIO()
+        image.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        img_reader = ImageReader(img_buffer)
+
+        c.drawImage(img_reader, 2 * cm, 10 * cm, width=desired_width, height=desired_height, preserveAspectRatio=True)
 
         c.showPage()
 
     c.save()
+
+    st.session_state.signature_pdf_path = pdf_path
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -360,9 +363,8 @@ def select_employee():
 def display_employee_buttons(employees):
     num_employees = len(employees)
     cols_per_row = 3
-    employee_counter = 0  # Counter to ensure unique keys
+    employee_counter = 0  
 
-    # Split employees into rows based on cols_per_row
     rows = [employees[i:i + cols_per_row] for i in range(0, num_employees, cols_per_row)]
 
     for row_employees in rows:
@@ -370,11 +372,10 @@ def display_employee_buttons(employees):
         for idx, employee in enumerate(row_employees):
             with cols[idx]:
                 is_added = employee in st.session_state.added_employees
-                # Create a unique key using the counter
                 button_key = f"employee_{employee_counter}"
                 if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
                     handle_employee_selection(employee)
-                employee_counter += 1  # Increment counter after creating the button
+                employee_counter += 1 
 
 def check_employee_pin():
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
@@ -400,6 +401,10 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+
+
 
 
 

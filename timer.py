@@ -7,8 +7,6 @@ def start_timer():
     st.session_state.timer_active = True
     st.session_state.countdown_start_time = time.time()
 
-
-
 def display_back_button():
     if st.button(get_text("Zurück", "Back"), key="back_button"):
         st.session_state.page = 'home'

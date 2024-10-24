@@ -1,7 +1,6 @@
 # data_utils.py
 import pandas as pd
 import streamlit as st
-import os
 from text_utils import get_text
 
 @st.cache_data(ttl=3600)  

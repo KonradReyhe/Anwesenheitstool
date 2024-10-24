@@ -10,6 +10,7 @@ from email_utils import send_documents_to_accounting
 from config import VERSION
 from text_utils import get_text  
 import asyncio
+import pandas as pd
 
 
 local_tz = pytz.timezone('Europe/Berlin')
@@ -76,6 +77,16 @@ def toggle_language():
 
 def update_last_activity():
     st.session_state.last_activity_time = time.time()
+
+def load_master_data(force_update=False):
+    try:
+        if force_update or 'master_data' not in st.session_state:
+            master_data = pd.read_csv('path_to_master_data.csv')  
+            st.session_state.master_data = master_data
+        return True
+    except Exception as e:
+        st.error(f"Error loading master data: {e}")
+        return False
 
 
 

@@ -19,7 +19,6 @@ def send_documents_to_accounting(zip_file_path):
     sender_password = os.getenv('SENDER_PASSWORD')
     accounting_email = st.session_state.get('accounting_email')
 
-    # Check if email configuration is set
     if not all([smtp_server, smtp_port, sender_email, sender_password, accounting_email]):
         logger.warning("Email configuration is incomplete. Skipping email sending.")
         st.warning("Email configuration not found. Skipping sending email.")

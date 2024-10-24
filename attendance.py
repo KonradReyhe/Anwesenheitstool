@@ -63,20 +63,30 @@ def save_attendance():
 
     attendance_df = pd.DataFrame(st.session_state.attendance_data)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    attendance_csv = f"Anwesenheit_{timestamp}.csv"
-    attendance_df.to_csv(attendance_csv, index=False)
-    
+
+    if st.session_state.custom_event_name:
+        sanitized_event_name = st.session_state.custom_event_name.replace(" ", "_")
+        attendance_csv = f"GetTogether_{sanitized_event_name}_{timestamp}.csv"
+    else:
+        attendance_csv = f"GetTogether_{timestamp}.csv"
+
+    attendance_csv_path = os.path.join("data", attendance_csv)
+    attendance_df.to_csv(attendance_csv_path, index=False)
+
     zip_file_name = f"GetTogether_{timestamp}.zip"
-    with zipfile.ZipFile(zip_file_name, 'w') as zipf:
-        zipf.write(attendance_csv)
-        # Include the combined signatures PDF if it exists
-        signature_pdf_path = os.path.join('signatures', 'combined_signatures.pdf')
-        if os.path.exists(signature_pdf_path):
-            zipf.write(signature_pdf_path, arcname='Unterschriften.pdf')
-    
-    # Clean up
-    os.remove(attendance_csv)
-    return zip_file_name
+    zip_file_path = os.path.join("data", zip_file_name)
+
+    with zipfile.ZipFile(zip_file_path, 'w') as zipf:
+        zipf.write(attendance_csv_path, arcname=attendance_csv)
+
+        if 'signature_pdf_path' in st.session_state and os.path.exists(st.session_state.signature_pdf_path):
+            pdf_filename = os.path.basename(st.session_state.signature_pdf_path)
+            zipf.write(st.session_state.signature_pdf_path, arcname=pdf_filename)
+
+    os.remove(attendance_csv_path)
+    os.remove(st.session_state.signature_pdf_path)
+
+    return zip_file_path
 
 def undo_last_employee_selection():
     if st.session_state.added_employees:
