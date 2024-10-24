@@ -23,6 +23,9 @@ import threading
 from auth import check_datenschutz_pin
 import img2pdf
 import glob
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
 
 
 local_tz = pytz.timezone('Europe/Berlin')  
@@ -155,18 +158,31 @@ def process_signature(image_data, employee):
     update_signatures_pdf(signature_dir)
 
 def update_signatures_pdf(signature_dir):
-    import img2pdf
-    import glob
-
     pdf_path = os.path.join(signature_dir, "combined_signatures.pdf")
 
+    # Get all signature image paths
     signature_images = sorted(glob.glob(os.path.join(signature_dir, "*.png")))
     signature_images = [
         img for img in signature_images if not img.endswith("combined_signatures.pdf.png")
     ]
 
-    with open(pdf_path, "wb") as f:
-        f.write(img2pdf.convert(signature_images))
+    c = canvas.Canvas(pdf_path, pagesize=A4)
+
+    for img_path in signature_images:
+        # Extract the employee name from the filename
+        img_filename = os.path.basename(img_path)
+        employee_name = img_filename.rsplit('_', 1)[0]
+
+        # Add employee name
+        c.setFont("Helvetica", 14)
+        c.drawString(2 * cm, 25 * cm, f"Name: {employee_name}")
+
+        # Add signature image
+        c.drawImage(img_path, 2 * cm, 10 * cm, width=16 * cm, height=12 * cm, preserveAspectRatio=True)
+
+        c.showPage()
+
+    c.save()
 
 def handle_signature_modal():
     if st.session_state.get('show_signature_modal', False):
@@ -384,6 +400,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
