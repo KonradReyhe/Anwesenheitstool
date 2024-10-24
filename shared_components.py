@@ -1,3 +1,9 @@
+"""
+This module contains shared UI components used across different pages
+of the GetTogether application. It includes functions for displaying
+styled admin pages and navigation buttons.
+"""
+
 import streamlit as st
 from text_utils import get_text
 

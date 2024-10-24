@@ -1,9 +1,16 @@
 #timer.py
+"""
+This module handles timer-related functionality for the GetTogether application.
+It includes functions for starting, stopping, and displaying timers.
+"""
 import streamlit as st
 import time
 from text_utils import get_text
 
 def start_timer():
+    """
+    Start the timer for the current session.
+    """
     st.session_state.timer_active = True
     st.session_state.countdown_start_time = time.time()
 

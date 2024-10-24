@@ -1,9 +1,21 @@
-#styles.py
+# styles.py
+
+"""
+This module defines custom styles for the GetTogether application.
+It includes functions for applying CSS styles to various UI elements.
+"""
+
 import streamlit as st
 
 VERSION = "1.0.0"
 
 def apply_custom_styles():
+    """
+    Apply custom CSS styles to the Streamlit application.
+    This function injects CSS to customize the appearance of various UI elements.
+    """
+    # Implementation details here
+
     custom_css = """
     <style>
     /* General styles */
@@ -187,6 +199,8 @@ def apply_custom_styles():
     st.markdown(custom_css, unsafe_allow_html=True)
 
     st.markdown(f"<div class='version-number'>v{VERSION}</div>", unsafe_allow_html=True)
+
+
 
 
 
