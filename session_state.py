@@ -1,9 +1,19 @@
 #session_state.py
+
+"""
+This module manages the session state for the GetTogether application.
+It includes functions for initializing and updating the session state.
+"""
+
 import streamlit as st
 import os
 import time
 
 def initialize_session_state():
+    """
+    Initialize the session state with default values.
+    This function sets up all necessary variables in the Streamlit session state.
+    """
     if 'page' not in st.session_state:
         st.session_state.page = 'home'
     if 'language' not in st.session_state:
@@ -56,6 +66,8 @@ def initialize_session_state():
         st.session_state.show_admin_panel = False
     if 'selected_company_temp' not in st.session_state:
         st.session_state.selected_company_temp = None
+    if 'signature_pdf_path' not in st.session_state:
+        st.session_state.signature_pdf_path = None
 
 def initialize_employee_session_state():
     if 'current_company_team' not in st.session_state:
@@ -70,5 +82,6 @@ def initialize_employee_session_state():
         st.session_state.success_messages = []
     if 'last_message_time' not in st.session_state:
         st.session_state.last_message_time = None
+
 
 

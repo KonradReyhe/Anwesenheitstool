@@ -1,5 +1,9 @@
 # header.py
 
+"""
+This module contains functions for displaying the header of the GetTogether application.
+"""
+
 import streamlit as st
 from text_utils import get_text
 from utils import toggle_language
@@ -7,6 +11,10 @@ import os
 import base64
 
 def display_header():
+    """
+    Display the header of the GetTogether application.
+    This includes the logo and any other header elements.
+    """
     if 'language' not in st.session_state:
         st.session_state.language = 'DE'
 

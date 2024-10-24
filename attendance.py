@@ -1,5 +1,6 @@
 # attendance.py
 
+# Import necessary libraries and modules
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -10,8 +11,17 @@ from timer import start_timer
 import zipfile
 
 def add_success_message(employee):
+    """
+    Add a success message for the newly added employee.
+    This function creates and stores a success message in the session state, which will be displayed to the user.
+
+    Args:
+        employee (str): The name of the employee that was added to the attendance list.
+    """
+    # Clear existing success messages
     st.session_state.success_messages = []
     
+    # Create a new success message for the added employee
     new_message = get_text(
         f'Mitarbeiter "{employee}" wurde zur Anwesenheitsliste hinzugefügt.',
         f'Employee "{employee}" has been added to the attendance list.'
@@ -20,9 +30,20 @@ def add_success_message(employee):
     st.session_state.last_message_time = time.time()
 
 def add_employee_to_attendance(employee, from_signature_modal=False):
+    """
+    Add an employee to the attendance list and perform related actions.
+    
+    Args:
+        employee (str): The name of the employee to add.
+        from_signature_modal (bool): Indicates if the function is called from the signature modal.
+    """
+    # Get current time
     now = datetime.now()
+    # Generate employee initials
     employee_initials = ''.join([name[0].upper() for name in employee.split()])[:3]
+    # Create a short ID for the employee
     short_id = f"{employee_initials}{now.strftime('%H%M%S')}"
+    # Create a new attendance record
     new_record = {
         'ID': short_id,
         'Name': employee,
@@ -30,10 +51,14 @@ def add_employee_to_attendance(employee, from_signature_modal=False):
         'Team': st.session_state.selected_team,
         'Zeit': now.strftime("%Y-%m-%d %H:%M:%S")
     }
+    # Add the new record to the attendance data
     st.session_state.attendance_data.append(new_record)
     st.session_state.added_employees.append(employee)
+    # Auto-save the attendance data
     auto_save_attendance()
+    # Add a success message
     add_success_message(employee)
+    # Start the timer
     start_timer()
 
 def auto_save_attendance():
@@ -79,16 +104,21 @@ def save_attendance():
     with zipfile.ZipFile(zip_file_path, 'w') as zipf:
         zipf.write(attendance_csv_path, arcname=attendance_csv)
 
-        if 'signature_pdf_path' in st.session_state and os.path.exists(st.session_state.signature_pdf_path):
+        if 'signature_pdf_path' in st.session_state and st.session_state.signature_pdf_path and os.path.exists(st.session_state.signature_pdf_path):
             pdf_filename = os.path.basename(st.session_state.signature_pdf_path)
             zipf.write(st.session_state.signature_pdf_path, arcname=pdf_filename)
+            os.remove(st.session_state.signature_pdf_path)
 
     os.remove(attendance_csv_path)
-    os.remove(st.session_state.signature_pdf_path)
+    st.session_state.signature_pdf_path = None
 
     return zip_file_path
 
 def undo_last_employee_selection():
+    """
+    Remove the last added employee from the attendance list and related data structures.
+    This function is used to undo the most recent employee addition.
+    """
     if st.session_state.added_employees:
         last_employee = st.session_state.added_employees.pop()
         
@@ -111,6 +141,7 @@ def undo_last_employee_selection():
         
         st.rerun()
 
+# Define public interface for this module
 __all__ = [
     'add_employee_to_attendance',
     'auto_save_attendance',

@@ -1,5 +1,11 @@
 # ui_components.py
 
+"""
+This module contains UI components and related functions for the GetTogether application.
+It handles the display and interaction of various UI elements throughout the application.
+"""
+
+# Import necessary libraries and modules
 import streamlit as st
 from text_utils import get_text
 from data_utils import get_companies, get_teams_for_company, get_employees_for_team
@@ -23,23 +29,57 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 import io
 
-
+# Set up timezone for Berlin (used throughout the application)
 local_tz = pytz.timezone('Europe/Berlin')  
 
+# Define the list of exported functions for better module organization
+__all__ = [
+    'select_company',
+    'select_team',
+    'select_employee',
+    'guest_info',
+    'display_back_button',
+    'display_company_team_info',
+    'display_employee_buttons',
+    'handle_signature_modal',
+    'display_success_messages',
+    'handle_undo_last_selection',
+    'signature_modal',
+]
 
 def handle_employee_selection(employee):
+    """
+    Handle the selection of an employee.
+
+    This function manages the process of adding an employee to the attendance list,
+    including signature requirements if enabled. It also handles the UI updates
+    and navigation flow after an employee is selected.
+
+    Args:
+        employee (str): The name of the selected employee.
+    """
+    # Check if the employee is not already added
     if employee not in st.session_state.added_employees:
+        # Set the current employee in the session state
         st.session_state.current_employee = employee
+        # Check if signature is required
         if st.session_state.require_signature:
+            # Show signature modal if required
             st.session_state.show_signature_modal = True
             st.rerun()
         else:
+            # Add employee to attendance without signature
             add_employee_to_attendance(employee)
+            # Reset selected team and go back to company selection
             st.session_state.selected_team = None
             st.session_state.page = 'select_company'
             st.rerun()
 
 def display_success_messages():
+    """
+    Display success messages for a short duration.
+    This function shows the most recent success message for 5 seconds before clearing it.
+    """
     current_time = time.time()
     if st.session_state.success_messages and st.session_state.last_message_time:
         elapsed_time = current_time - st.session_state.last_message_time
@@ -185,6 +225,10 @@ def handle_signature_modal():
         signature_modal()
 
 def select_company():
+    """
+    Display the company selection page and handle admin panel access.
+    This function manages the UI for selecting a company and provides access to the admin panel if the correct PIN is entered.
+    """
     display_header()
     
     if st.session_state.show_admin_panel:
@@ -238,6 +282,14 @@ def select_company():
     st.markdown("<div style='margin-bottom: 40px;'></div>", unsafe_allow_html=True)
 
 def display_company_button(company):
+    """
+    Display a button for a company with its logo (if available).
+    This function creates a clickable button for each company, handling the selection process
+    and data protection PIN if active.
+    
+    Args:
+        company (str): The name of the company to display.
+    """
     logo_path = f"logos/{company.lower().replace(' ', '_')}.png"
     if os.path.exists(logo_path):
         logo_base64 = base64.b64encode(open(logo_path, 'rb').read()).decode()
@@ -258,6 +310,16 @@ def display_company_button(company):
         st.rerun()
 
 def image_to_base64(image):
+    """
+    Convert a PIL Image object to a base64 encoded string.
+    This function is used for embedding images directly in HTML/CSS.
+
+    Args:
+        image (PIL.Image): The image to convert.
+
+    Returns:
+        str: Base64 encoded string of the image.
+    """
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
@@ -265,6 +327,12 @@ def image_to_base64(image):
 
 
 def display_company_team_info():
+    """
+    Display the currently selected company and team information.
+
+    This function shows the user which company and team are currently selected
+    in the UI, providing context for the current state of the application.
+    """
     if st.session_state.selected_company:
         st.markdown(
             f"<div class='company-info'>{get_text('Ausgewählte Firma:', 'Selected Company:')} {st.session_state.selected_company}</div>", 
@@ -277,13 +345,22 @@ def display_company_team_info():
         )
 
 def guest_info():
+    """
+    Display and handle the guest information input form.
+
+    This function creates a form for entering guest information, including
+    name and company. It also handles the submission of guest data and
+    navigation back to the company selection page.
+    """
     display_header()
     
     st.markdown(f"<div class='sub-header'>{get_text('Gast-Information', 'Guest Information')}</div>", unsafe_allow_html=True)
     
+    # Input fields for guest information
     st.session_state.guest_name = st.text_input(get_text("Name des Gastes", "Guest Name"))
     st.session_state.guest_company = st.text_input(get_text("Firma des Gastes (optional)", "Guest Company (optional)"))
     
+    # Create two columns for confirm and back buttons
     col1, col2 = st.columns(2)
     with col1:
         if st.button(get_text("Bestätigen", "Confirm"), use_container_width=True):
@@ -294,8 +371,15 @@ def guest_info():
             st.rerun()
 
 def submit_guest():
+    """
+    Submit the guest information and add it to the attendance data.
+
+    This function creates a new attendance record for the guest and adds it
+    to the session state. It also handles the case where no guest name is provided.
+    """
     if st.session_state.guest_name:
         now = datetime.now()
+        # Create a new attendance record for the guest
         new_record = {
             'ID': f"Guest_{now.strftime('%Y%m%d%H%M%S')}",
             'Name': st.session_state.guest_name,
@@ -345,17 +429,24 @@ def display_employee_buttons(employees):
 
     rows = [employees[i:i + cols_per_row] for i in range(0, num_employees, cols_per_row)]
 
+    # Create rows of employee buttons
     for row_employees in rows:
         cols = st.columns(len(row_employees))
         for idx, employee in enumerate(row_employees):
             with cols[idx]:
+                # Check if the employee has already been added
                 is_added = employee in st.session_state.added_employees
                 button_key = f"employee_{employee_counter}"
+                # Create a button for each employee, disabled if already added
                 if st.button(employee, key=button_key, use_container_width=True, disabled=is_added):
                     handle_employee_selection(employee)
                 employee_counter += 1 
 
 def check_employee_pin():
+    """
+    Check if the employee PIN is required and validate it if necessary.
+    Returns True if the PIN is correct or not required, False otherwise.
+    """
     if 'employee_pin_required' in st.session_state and st.session_state.employee_pin_required:
         pin = st.text_input(get_text("PIN eingeben:", "Enter PIN:"), type="password")
         if st.button(get_text("Bestätigen", "Confirm")):
@@ -367,6 +458,7 @@ def check_employee_pin():
     else:
         return True
 
+# Add custom CSS to style buttons and special companies section
 st.markdown("""
 <style>
     .stButton>button {
@@ -393,6 +485,16 @@ __all__ = [
     'handle_undo_last_selection',
     'signature_modal',
 ]
+
+
+
+
+
+
+
+
+
+
 
 
 

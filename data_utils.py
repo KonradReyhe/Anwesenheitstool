@@ -1,4 +1,10 @@
 # data_utils.py
+
+"""
+This module provides utility functions for data manipulation and retrieval
+in the GetTogether application.
+"""
+
 import pandas as pd
 import streamlit as st
 from text_utils import get_text
@@ -11,6 +17,12 @@ def load_master_data():
     return df
 
 def get_companies():
+    """
+    Retrieve the list of companies from the data source.
+
+    Returns:
+        list: A list of company names.
+    """
     file_path = "Firmen_Teams_Mitarbeiter.csv"
     try:
         df = pd.read_csv(file_path)
@@ -23,11 +35,30 @@ def get_companies():
         return []
 
 def get_teams_for_company(company):
+    """
+    Retrieve the list of teams for a given company.
+
+    Args:
+        company (str): The name of the company.
+
+    Returns:
+        list: A list of team names for the specified company.
+    """
     df = load_master_data()
     teams = df[df["Firma"] == company]["Team"].unique().tolist()
     return sorted(teams)
 
 def get_employees_for_team(company, team):
+    """
+    Retrieve the list of employees for a given company and team.
+
+    Args:
+        company (str): The name of the company.
+        team (str): The name of the team.
+
+    Returns:
+        list: A list of employee names for the specified company and team.
+    """
     df = load_master_data()
     employees = df[(df["Firma"] == company) & 
                    (df["Team"] == team)]["Mitarbeiter"].tolist()

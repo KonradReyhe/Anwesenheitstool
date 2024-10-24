@@ -9,9 +9,12 @@ from shared_components import display_styled_admin_page, back_to_admin_settings
 from auth import compare_digest
 
 def admin_settings():
+    # Display the header for the admin settings page
     display_header()
 
+    # Check if an admin page is not set or is None
     if 'admin_page' not in st.session_state or st.session_state.admin_page is None:
+        # Display the admin settings title
         st.markdown(
             f"""
             <div style="
@@ -27,6 +30,7 @@ def admin_settings():
             unsafe_allow_html=True
         )
 
+        # Define admin options with their corresponding labels in German and English
         options = [
             ("change_event_name", get_text("Event-Name ändern", "Change Event Name")),
             ("change_pin", get_text("PIN ändern", "Change PIN")),
@@ -36,17 +40,20 @@ def admin_settings():
             ("end_get_together", get_text("GetTogether beenden", "End GetTogether")),
         ]
 
+        # Create buttons for each admin option
         for option, label in options:
             if st.button(label, key=f"admin_{option}", use_container_width=True):
                 st.session_state.admin_page = option
                 st.rerun()
 
+        # Back button to return to company selection
         if st.button(get_text("Zurück", "Back"), key="admin_settings_back", use_container_width=True):
             st.session_state.page = 'select_company'
             st.session_state.show_admin_panel = False
             st.session_state.admin_access_granted = False
             st.rerun()
     else:
+        # Handle different admin pages based on the selected option
         admin_page = st.session_state.admin_page
         if admin_page == "change_event_name":
             change_event_name_page()
@@ -66,6 +73,10 @@ def admin_settings():
             st.rerun()
 
 def change_event_name_page():
+    """
+    Display the page for changing the event name.
+    This function allows the admin to update the current event's name.
+    """
     display_styled_admin_page(
         get_text('Event-Name ändern', 'Change Event Name'),
         get_text('Hier können Sie den Namen des aktuellen Events ändern.',
@@ -81,6 +92,10 @@ def change_event_name_page():
     back_to_admin_settings()
 
 def change_pin_page():
+    """
+    Display the page for changing the admin PIN.
+    This function allows the admin to update the current PIN used for administrative access.
+    """
     display_styled_admin_page(
         get_text('PIN ändern', 'Change PIN'),
         get_text('Hier können Sie den Admin-PIN ändern.',
@@ -99,6 +114,10 @@ def change_pin_page():
     back_to_admin_settings()
 
 def change_datenschutz_pin_page():
+    """
+    Display the page for changing the data protection PIN.
+    This function allows the admin to enable/disable and update the data protection PIN.
+    """
     display_styled_admin_page(
         get_text('Datenschutz PIN ändern', 'Change Data Protection PIN'),
         get_text('PIN für den Zugriff auf geschützte Daten', 'PIN for accessing protected data')
@@ -131,6 +150,10 @@ def change_datenschutz_pin_page():
     back_to_admin_settings()
 
 def remove_participants_page():
+    """
+    Display the page for removing participants from the attendance list.
+    This function allows the admin to select and remove a participant from the current event.
+    """
     display_styled_admin_page(
         get_text('Teilnehmer entfernen', 'Remove Participants'),
         get_text('Hier können Sie Teilnehmer aus der Anwesenheitsliste entfernen.',
@@ -155,6 +178,11 @@ def remove_participants_page():
     back_to_admin_settings()
 
 def toggle_signature_requirement_page():
+    """
+    Display the page for toggling the signature requirement.
+    This function allows the admin to enable or disable the requirement
+    for employees to provide a signature when registering their attendance.
+    """
     display_styled_admin_page(
         get_text('Unterschriftspflicht ändern', 'Toggle Signature Requirement'),
         get_text('Hier können Sie die Unterschriftspflicht für Mitarbeiter aktivieren oder deaktivieren.',
@@ -173,13 +201,16 @@ def toggle_signature_requirement_page():
     back_to_admin_settings()
 
 def end_get_together_page():
+    # Display the end GetTogether page
     display_styled_admin_page(
         get_text('GetTogether beenden', 'End GetTogether'),
         get_text('Beendet das aktuelle GetTogether-Event und sendet eine ZIP-Datei mit der CSV-Datei und der Unterschriften-PDF an die Buchhaltungs-E-Mail.',
                  'Ends the current GetTogether event and sends a ZIP file containing the CSV file and signatures PDF to the accounting email.')
     )
+    # Input field for PIN
     pin_input = st.text_input(get_text("PIN eingeben", "Enter PIN"), type="password", key="end_gathering_pin")
     if st.button(get_text("GetTogether beenden", "End GetTogether"), use_container_width=True):
+        # Verify PIN and end GetTogether if correct
         if pin_input == st.session_state.pin:
             end_get_together()
             st.success(get_text("GetTogether wurde erfolgreich beendet.", "GetTogether has been successfully ended."))
@@ -190,17 +221,25 @@ def end_get_together_page():
     back_to_admin_settings()
 
 def admin_panel():
+    """
+    Display the admin panel and handle admin PIN verification.
+    This function creates a form for entering the admin PIN and verifies it,
+    granting access to admin settings if the PIN is correct.
+    """
+    # Display the admin panel
     display_header()
     st.markdown(
         f"<div class='sub-header' style='color: #f9c61e;'>{get_text('Admin Panel', 'Admin Panel')}</div>",
         unsafe_allow_html=True
     )
 
+    # Form for entering admin PIN
     with st.form(key='admin_pin_form'):
         entered_pin = st.text_input(get_text("Admin PIN eingeben", "Enter Admin PIN"), type="password", key="admin_pin_input")
         submit_button = st.form_submit_button(get_text("Enter", "Enter"))
 
     if submit_button:
+        # Verify admin PIN
         if compare_digest(entered_pin, st.session_state.pin):
             st.session_state.admin_access_granted = True
             st.session_state.page = 'admin_settings'
@@ -208,6 +247,8 @@ def admin_panel():
         else:
             st.error(get_text("Falscher Admin PIN.", "Incorrect Admin PIN."))
 
+    # Cancel button to exit admin panel
     if st.button(get_text("Abbrechen", "Cancel"), key="cancel_admin_panel"):
         st.session_state.show_admin_panel = False
         st.rerun()
+

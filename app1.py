@@ -1,5 +1,14 @@
 # app1.py
 
+"""
+app1.py
+
+This is the main application file for the GetTogether attendance system.
+It sets up the Streamlit interface, handles the main application flow,
+and integrates various components of the system.
+"""
+
+# Import required libraries and modules
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import pytz
@@ -7,6 +16,7 @@ from streamlit.runtime.scriptrunner import RerunException, StopException
 import asyncio
 import logging
 
+# Import custom modules and functions
 from auth import start_get_together_callback, datenschutz_pin_page
 from ui_components import (
     select_company, select_team, select_employee, guest_info
@@ -19,28 +29,46 @@ from text_utils import get_text
 from admin import admin_settings
 from attendance import auto_save_attendance
 
+# Set up timezone for Berlin (used throughout the application)
 local_tz = pytz.timezone('Europe/Berlin')
 
+# Configure logging for the application
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def home():
+    """
+    Display the home page of the GetTogether application.
+
+    This function sets up the main interface for starting a new GetTogether event,
+    including PIN setup, event name input, and data protection settings.
+    It uses Streamlit components to create an interactive form for user input.
+    """
+    # Display the header of the application
     display_header()
+    
+    # Add a subheader for the configuration section
     st.markdown(f"<div class='sub-header'>{get_text('GetTogether konfigurieren:', 'Configure GetTogether:')}</div>", unsafe_allow_html=True)
     
+    # Create a form for user input
     with st.form(key='start_gettogether_form'):
+        # Create two columns for PIN input
         col1, col2 = st.columns(2)
         with col1:
             pin1 = st.text_input(get_text("Setzen Sie einen PIN:", "Set a PIN:"), type="password", key="pin1")
         with col2:
             pin2 = st.text_input(get_text("Bestätigen Sie den PIN:", "Confirm the PIN:"), type="password", key="pin2")
         
+        # Input field for custom event name
         custom_event_name = st.text_input(get_text("Name des Events (optional):", "Event name (optional):"), key="custom_event_name_input")
         
+        # Input field for data protection PIN
         datenschutz_pin = st.text_input(get_text("Datenschutz PIN setzen (optional):", "Set Data Protection PIN (optional):"), type="password", key="datenschutz_pin_input")
         
+        # Checkbox for requiring employee signature
         require_signature = st.checkbox(get_text("Unterschrift von Mitarbeitern verlangen", "Require employee signature"), value=st.session_state.get('require_signature', False), key="require_signature_checkbox")
         
+        # Submit button to start GetTogether
         if st.form_submit_button(get_text("GetTogether beginnen", "Start GetTogether")):
             start_get_together_callback()
 
